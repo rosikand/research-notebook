@@ -1,0 +1,28 @@
+
+---
+title: "Paper Notes"
+listing:
+  - id: favorites
+    contents: "*/index.qmd"
+    sort: "date desc"
+    type: table
+    include:
+      favorite: true
+    fields: [date, title, categories, description]
+    table-striped: true
+    table-hover: true
+  - id: all
+    contents: "*/index.qmd"
+    sort: "date desc"
+    type: table
+    categories: true
+    fields: [date, title, status, categories, description]
+    table-striped: true
+    table-hover: true
+---
+
+
+
+Summaries, key takeaways, and critiques of papers I'm reading.
+
+Use `_template.qmd` as a starting point for new entries.

@@ -1,0 +1,27 @@
+---
+title: ""
+description: ""
+date: ""
+categories: []
+type: "technical"  # technical | experiment | debug | meeting | misc
+---
+
+## Context
+
+What prompted this note? Link to relevant ideas or paper notes if applicable.
+
+## Details
+
+Main content goes here. Use code blocks, math, tables, diagrams as needed.
+
+```python
+# code here
+```
+
+## Observations
+
+-
+
+## TODO
+
+- [ ]

@@ -1,0 +1,43 @@
+---
+title: ""
+description: ""
+date: ""
+categories: []
+paper:
+  authors: ""
+  year: ""
+  venue: ""
+  url: ""
+---
+
+## Summary
+
+One-paragraph summary of the paper's contribution.
+
+## Key Ideas
+
+1.
+
+## Method
+
+Describe the core technical approach.
+
+## Results
+
+What did they show? Key numbers or comparisons.
+
+## Strengths
+
+-
+
+## Weaknesses / Limitations
+
+-
+
+## Relevance to My Work
+
+How does this connect to MedEnv, GRPO, or other active projects?
+
+## Key Takeaways
+
+-

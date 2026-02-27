@@ -1,0 +1,45 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "ML Research Notebook"
+  description: "Research notes on medical AI agents, reinforcement learning, and related topics."
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: about.qmd
+        text: About
+      - href: ideas/index.qmd
+        text: Ideas
+      - href: paper-notes/index.qmd
+        text: Paper Notes
+      - href: notes/index.qmd
+        text: Notes
+    right:
+      - icon: github
+        href: https://github.com/rosikand/research-notebook
+  page-footer:
+    center: "Built with [Quarto](https://quarto.org/)"
+    
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    css: styles.css
+    toc: true
+    code-fold: true
+    code-tools: true
+    highlight-style: github
+  pdf:
+    documentclass: article
+    papersize: letter
+    margin-left: 1in
+    margin-right: 1in
+
+execute:
+  freeze: auto
+
+

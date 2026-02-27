@@ -1,0 +1,13 @@
+---
+title: "ML Research Notebook"
+---
+
+A living collection of research ideas, paper notes, and general notes for my research work. 
+
+## Sections
+
+**[Ideas](ideas/index.qmd)** — Research directions, hypotheses, experiment proposals, and half-baked thoughts worth capturing.
+
+**[Paper Notes](paper-notes/index.qmd)** — Summaries, key takeaways, and critiques of papers I'm reading.
+
+**[Notes](notes/index.qmd)** — Technical notes, experiment logs, debugging journals, and everything else.

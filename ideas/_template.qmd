@@ -1,0 +1,27 @@
+---
+title: ""
+description: ""
+date: ""
+categories: []
+status: "seed"  # seed | exploring | concrete | shelved
+---
+
+## Motivation
+
+Why is this worth pursuing? What gap does it fill?
+
+## Core Idea
+
+Describe the approach. Include equations, pseudocode, or diagrams as needed.
+
+## Open Questions
+
+-
+
+## Potential Experiments
+
+-
+
+## Related Work
+
+-

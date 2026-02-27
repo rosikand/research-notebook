@@ -1,0 +1,8 @@
+/_site/
+/.quarto/
+*_cache/
+*.html
+!index.qmd
+.DS_Store
+__pycache__/
+.ipynb_checkpoints/

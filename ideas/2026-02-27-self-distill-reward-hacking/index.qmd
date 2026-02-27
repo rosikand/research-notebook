@@ -1,0 +1,260 @@
+---
+title: "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment"
+description: "Condition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch." 
+date: "2026-02-26"
+categories: [rl]
+status: "exploring"  # seed | exploring | concrete | shelved
+---
+
+
+
+
+## Problem
+
+Let $\pi_\theta$ be a policy trained via reinforcement learning on coding tasks. Given prompt $s$, the policy generates solution $a \sim \pi_\theta(\cdot \mid s)$ and receives reward $R(s, a)$ based on test-case correctness. Reward hacking occurs when the model exploits the evaluation environment (e.g., redefining test functions) to achieve high reward without genuinely solving the task.
+
+All existing detection approaches — static probes, LLM judges, adversarial critics — share a common failure mode: the detector operates on a **different distribution** than the evolving policy. A static probe $M_\phi$ is trained on data from $\pi_{\theta_0}$ (the initial policy) and frozen. As $\pi_\theta$ undergoes RL optimization, its output distribution drifts, and the model learns to produce outputs that satisfy the reward function while falling outside $M_\phi$'s decision boundary. Even online critics trained with external labels face this problem: the labeling mechanism (whether a ground-truth oracle, an LLM judge, or a frozen probe) is not itself subject to the same optimization pressure as the policy, creating an asymmetry the policy can exploit.
+
+**Core observation.** Reward hacking is fundamentally a consequence of **distributional divergence** between an online, evolving policy and offline or out-of-distribution detection mechanisms. The policy is updated on-policy at every step; the detector is not. Any detector that does not share the policy's distribution will eventually be outpaced.
+
+## Insight: The Policy as Its Own Judge
+
+We propose a detection mechanism where the policy judges *itself*. The key idea is to instantiate the policy $\pi_\theta$ in two roles — a **student** and a **teacher** — using *identical weights* but different conditioning:
+
+$$\text{Student:} \quad a \sim \pi_\theta(\cdot \mid s)$$
+
+$$\text{Teacher:} \quad \pi_\theta(\cdot \mid s, \; c(a, f, r))$$
+
+where the teacher receives additional context $c$ composed of:
+
+- $a$: the student's generated solution (the output being evaluated)
+- $f$: **environment feedback** — execution results, error messages, pass/fail signals, stack traces
+- $r$: the student's **reasoning trace** — chain-of-thought, internal deliberation
+
+The teacher is essentially asked: *given what the student wrote, what the environment reported, and what the student was thinking — did the student genuinely solve the problem, or did it exploit the evaluation?*
+
+This is self-distillation in a literal sense: the model distills judgment about its own behavior by conditioning on privileged information about that behavior. The teacher does not need to be a separate model, a frozen checkpoint, or an external oracle. It is the same $\pi_\theta$, given the information it needs to evaluate itself.
+
+## Method
+
+### Detection Signal
+
+For each rollout $a_i$ on prompt $s$, the environment returns feedback $f_i$ and the student produces reasoning trace $r_i$. We construct the teacher context $c_i = (a_i, f_i, r_i)$ and compute a divergence signal:
+
+$$d_i = D_{\text{KL}}\!\left(\pi_\theta(\cdot \mid s) \;\|\; \pi_\theta(\cdot \mid s, \; c_i)\right)$$
+
+This measures how much the teacher's distribution — informed by the student's actual output, env feedback, and reasoning — diverges from the student's unconditional generation distribution. High $d_i$ indicates the teacher, upon seeing the full picture, would generate very differently from the student — a signal that the student's behavior is inconsistent with honest problem-solving as judged by the model's own informed assessment.
+
+Alternatively, the teacher can be prompted to produce an explicit judgment token (e.g., "honest" vs. "exploit") and the detection signal can be extracted from the teacher's predicted probability:
+
+$$\hat{y}_i = P_{\pi_\theta}\!\left(\text{"exploit"} \mid s, \; c_i\right)$$
+
+Both formulations use the same weights $\pi_\theta$ — the only difference is what information is conditioned on.
+
+### Mitigation via Selective Advantage Gating
+
+The detection signal is used to gate the GRPO advantage, suppressing gradient contributions from suspected hacking rollouts:
+
+$$\hat{A}_i^{\text{gated}} = \hat{A}_i \cdot g(d_i)$$
+
+with soft gating $g(d_i) = \exp(-\gamma \cdot d_i)$ or hard gating $g(d_i) = \mathbf{1}[d_i < \tau]$. The full training objective:
+
+$$\mathcal{L}(\theta) = -\mathbb{E}_{s, \{a_i\}} \left[ \frac{1}{G} \sum_{i=1}^{G} \min\!\left( \rho_i \hat{A}_i^{\text{gated}},\; \text{clip}(\rho_i, 1 \pm \epsilon)\hat{A}_i^{\text{gated}} \right) \right]$$
+
+### Online Co-Evolution
+
+Both the student and teacher are $\pi_\theta$. When the policy is updated via RL, both roles update simultaneously. There is no lag, no stale checkpoint, no external model to fall behind. At step $t$, the student generates from $\pi_{\theta_t}$; the teacher evaluates using $\pi_{\theta_t}$ with context. At step $t+1$, both have moved to $\pi_{\theta_{t+1}}$.
+
+## Why This Resists Evasion
+
+Previous detection methods fail because the policy can exploit the **distributional gap** between itself and the detector:
+
+| Approach | Detector Distribution | Evasion Mechanism |
+|---|---|---|
+| Static probe | Frozen at $\pi_{\theta_0}$ | Policy drifts away from probe's training data |
+| LLM judge | Fixed external model | Policy learns outputs that fool a different model |
+| Online critic with labels | Trained on $\pi_\theta$ but with external labels | Labels lag or introduce circular dependency |
+| **Self-judgment (ours)** | **$\pi_\theta$ itself** | **Cannot diverge from its own distribution** |
+
+The central argument: **the policy cannot learn to evade a detector that is itself**. Any change to $\pi_\theta$ that would help the student avoid detection equally changes the teacher's evaluation capabilities, because they share the same weights. The student cannot "outrun" the teacher — they are the same model. Evasion would require the model to simultaneously (a) produce exploitative outputs under standard conditioning, and (b) fail to recognize those same outputs as exploitative when given full context. This is a much harder optimization target than evading an external classifier operating on a different distribution.
+
+## Advantages
+
+**No hack labels required.** The teacher's judgment is derived from the model's own understanding of what constitutes genuine problem-solving, conditioned on rich context. No external oracle, no ground-truth verifier, no labeled dataset.
+
+**Utilizes environment information.** Execution feedback $f$ — error messages, test outputs, stack traces — contains rich signal about whether a solution genuinely works or merely games the evaluation. This information is already produced during RL training but is typically discarded after reward computation. The teacher leverages it.
+
+**Cheap.** A single additional forward pass of $\pi_\theta$ with extended context, rather than a separate detector model, an external API call, or a labeled training loop.
+
+**Online by construction.** Both student and teacher are $\pi_\theta$ at every step. The detector cannot fall behind because it *is* the policy. This is the fundamental difference from all prior approaches: the detection mechanism lives on the same distribution as the thing it is detecting.
+
+## Experimental Setup
+
+We use the **Overwrite Tests** environment from Ariaw et al. (2025) with **Qwen3-4B** trained via GRPO on 992 LeetCode medium/hard problems. Key experiments:
+
+1. **Signal validation.** Does the teacher's divergence $d_i$ (or explicit judgment $\hat{y}_i$) correlate with ground-truth hack labels? What context components ($a$, $f$, $r$) contribute most to detection accuracy?
+2. **Evasion resistance.** Over the course of RL training, does detection accuracy remain stable while static probes degrade?
+3. **Mitigation.** Does advantage gating using the self-judgment signal reduce hack rates while preserving genuine coding performance?
+4. **Ablations.** Teacher with env feedback only vs. reasoning trace only vs. both. KL divergence signal vs. explicit judgment token. Soft vs. hard gating.
+
+
+---
+
+# Version 2 of idea formulation 
+
+# Self-Distillation for Reward Hacking Detection via Contextualized Self-Judgment
+
+**Rohan Sikand** · Stanford CS229
+
+---
+
+## 1. Problem Formulation
+
+Let $\pi_\theta$ be a language model policy trained via reinforcement learning. At each training step, the policy receives a prompt $s \sim \mathcal{D}$ and generates a group of $G$ rollouts $\{a_i\}_{i=1}^G$ where $a_i \sim \pi_\theta(\cdot \mid s)$, with each rollout a token sequence $a_i = (a_i^1, \ldots, a_i^T)$. A reward function $R : \mathcal{S} \times \mathcal{A} \to \mathbb{R}$ scores each rollout based on test-case execution. The policy is updated via Group Relative Policy Optimization (GRPO).
+
+**Definition 1 (Reward Hacking).** A rollout $a_i$ is a *reward hack* if $R(s, a_i) > 0$ but $a_i$ does not constitute a correct solution to the task specified by $s$. Let $V : \mathcal{S} \times \mathcal{A} \to \{0, 1\}$ be the ground-truth verifier. Then $a_i$ is a reward hack iff $R(s, a_i) > 0 \;\land\; V(s, a_i) = 0$.
+
+**Definition 2 (Detection).** A detector is a function $D : \mathcal{S} \times \mathcal{A} \to [0, 1]$ estimating $P(V(s,a) = 0 \mid R(s,a) > 0)$.
+
+### The Evasion Problem
+
+A static detector $D_\phi$ trained on rollouts from $\pi_{\theta_0}$ faces a growing distributional gap:
+
+$$\Delta_t = D_{\text{KL}}\!\left(\pi_{\theta_t}(\cdot \mid s) \;\|\; \pi_{\theta_0}(\cdot \mid s)\right)$$
+
+As $\Delta_t$ grows, rollouts from $\pi_{\theta_t}$ fall out-of-distribution for $D_\phi$, and detection accuracy degrades. Empirically, probe accuracy drops by up to 16 percentage points during training (Ariaw et al., 2025). More generally, any detector whose parameters are not a function of $\theta_t$ will eventually be outpaced.
+
+**Requirement (Online Adaptation).** A robust detector must satisfy $D = D(\theta_t)$ — the detector's behavior must be a function of the current policy parameters at every training step $t$.
+
+**Core observation.** Reward hacking evasion is fundamentally a consequence of distributional divergence between an online, evolving policy and offline or out-of-distribution detection mechanisms. The policy is updated on-policy at every step; the detector is not. Any detector that does not share the policy's distribution will eventually be outpaced.
+
+## 2. Approach: The Policy as Its Own Judge
+
+We satisfy the online adaptation requirement by defining the detector as the policy itself, conditioned on additional context. We decompose each training step into a **generation phase** and a **judgment phase** using the same weights $\pi_\theta$.
+
+### 2.1 Context Construction
+
+For each rollout $a_i$ on prompt $s$, the RL environment produces execution feedback $f_i$ (test outputs, error messages, pass/fail signals, stack traces), and the policy's generation may include a reasoning trace $r_i$ (chain-of-thought tokens preceding the solution). We define the **judgment context**:
+
+$$c_i = (a_i, \; f_i, \; r_i)$$
+
+This is the complete record of what the student did ($a_i$), what the student was thinking ($r_i$), and what the environment reported ($f_i$).
+
+### 2.2 Student and Teacher
+
+Both roles share weights $\pi_\theta$, differing only in conditioning:
+
+$$\text{Student:} \quad p_{\text{S}}(\cdot) = \pi_\theta(\cdot \mid s)$$
+
+$$\text{Teacher:} \quad p_{\text{T}}(\cdot) = \pi_\theta(\cdot \mid s, \; c_i)$$
+
+The teacher has strictly more information than the student. Both $p_{\text{S}}$ and $p_{\text{T}}$ are deterministic functions of $\theta$ — when $\theta$ updates, both update simultaneously.
+
+## 3. Two Detection Variants
+
+We propose two ways to extract a detection signal from the teacher, with meaningfully different theoretical and practical properties.
+
+### 3.1 Variant A: Distributional Divergence
+
+The per-rollout KL divergence between the teacher and student output distributions:
+
+$$d_i^{\text{KL}} = \frac{1}{T} \sum_{t=1}^{T} D_{\text{KL}}\!\left( \pi_\theta(\cdot \mid s, c_i, a_i^{<t}) \;\|\; \pi_\theta(\cdot \mid s, a_i^{<t}) \right)$$
+
+This measures, on average across token positions, how much the teacher's next-token predictions differ from the student's when the teacher has access to the full judgment context. High $d_i^{\text{KL}}$ indicates that the teacher, informed by environment feedback and the student's reasoning, would generate very differently — signaling behavioral inconsistency.
+
+**Strengths.** The evasion resistance argument is strongest here. Both the student's generation capability and the teacher's divergence computation flow through the same parameters $\theta$ via the same computational mechanism (next-token prediction). Evasion requires the model to produce exploitative code under $\pi_\theta(\cdot \mid s)$ while simultaneously maintaining low divergence under $\pi_\theta(\cdot \mid s, c_i)$ — a self-consistency constraint at the distributional level. There is no gradient pathway that improves evasion without symmetrically degrading the teacher's sensitivity, because $\nabla_\theta d_i^{\text{KL}}$ is coupled to the same parameters that govern generation.
+
+**Weaknesses.** Divergence is an indirect signal. High $d_i^{\text{KL}}$ can arise for reasons unrelated to hacking: the environment feedback may simply make the model more confident, or the reasoning trace may cause it to prefer a different valid algorithm. The signal is noisy — it measures *that* the teacher would generate differently, not *why*.
+
+### 3.2 Variant B: Self-Judge
+
+The teacher is prompted to produce an explicit binary judgment. Let $q \in \{\texttt{honest}, \texttt{exploit}\}$ denote the judgment token. The detection signal is:
+
+$$d_i^{\text{judge}} = P_{\pi_\theta}\!\left(q = \texttt{exploit} \;\mid\; s, \; c_i, \; p_{\text{judge}}\right)$$
+
+where $p_{\text{judge}}$ is a judge prompt instructing the model to assess whether the rollout constitutes genuine problem-solving or exploitation given the available context. This is extracted from the teacher's softmax over the judgment vocabulary in a single forward pass.
+
+**Strengths.** The signal directly answers the question we care about: *is this a hack?* It leverages the model's full reasoning capabilities about code behavior, environment feedback, and intent, rather than compressing everything into a scalar divergence. It is simpler to implement (one generation call, extract a logit) and more interpretable — the model can optionally produce a natural-language rationale alongside the judgment.
+
+**Weaknesses.** The evasion resistance argument is weaker. Although the student and teacher share $\theta$, they perform *different computational tasks*: the student writes code (conditional generation), while the judge classifies code (meta-reasoning about its own output). RL optimizes $\theta$ to maximize reward — which, in the presence of hacking, rewards exploitative code. The judge forward pass is under stop-gradient and is not directly trained. In principle, RL could push $\theta$ toward regions of parameter space where the model is competent at producing hacking code but where its meta-reasoning about whether code constitutes a hack degrades — because nothing in the training objective explicitly *protects* the judgment capability.
+
+More precisely: let $\mathcal{C}_{\text{gen}}(\theta) \subset \Theta$ denote the subspace of parameters that governs generation quality, and $\mathcal{C}_{\text{judge}}(\theta)$ the subspace governing judgment quality. Variant A couples these tightly because both use the same mechanism (next-token prediction). Variant B relies on the assumption that $\mathcal{C}_{\text{gen}}$ and $\mathcal{C}_{\text{judge}}$ are sufficiently entangled that optimizing $\theta$ for exploitative generation cannot avoid also improving the model's ability to recognize exploitation. This is plausible — both draw on the model's understanding of code semantics — but it is an empirical hypothesis, not a structural guarantee.
+
+### 3.3 Comparison
+
+| Property | Variant A (Divergence) | Variant B (Self-Judge) |
+|---|---|---|
+| Signal type | Indirect (distributional shift) | Direct (binary classification) |
+| Evasion resistance | Strong (distributional coupling) | Moderate (capability entanglement) |
+| Signal quality | Noisy (divergence $\neq$ hacking) | Clean (directly answers the question) |
+| Interpretability | Low (scalar $d_i$) | High (judgment + optional rationale) |
+| Computational cost | Two forward passes, KL computation | One forward pass, logit extraction |
+| Failure mode | False positives from benign divergence | Meta-reasoning degradation under RL |
+
+### 3.4 Combined Approach
+
+We propose using both signals in tandem. Variant B (self-judge) serves as the **primary gating signal** for advantage modulation — it is more actionable and interpretable. Variant A (divergence) serves as a **diagnostic monitor**: if $d_i^{\text{KL}}$ begins spiking on rollouts that the judge labels as clean ($d_i^{\text{judge}} < \tau$), this indicates the judge is being evaded and the distributional signal is detecting inconsistency the judge misses. Formally, we define the **evasion alarm**:
+
+$$e_t = \mathbb{E}_{i : d_i^{\text{judge}} < \tau}\!\left[d_i^{\text{KL}}\right]$$
+
+which tracks the average divergence among rollouts the judge clears. Rising $e_t$ over training is a signature of judge evasion — the model's behavior is shifting (high divergence) in ways the judge fails to flag.
+
+## 4. Mitigation: Selective Advantage Gating
+
+Let $\hat{A}_i$ denote the GRPO advantage for rollout $a_i$. Using the primary detection signal $d_i$ (either $d_i^{\text{KL}}$, $d_i^{\text{judge}}$, or a combination), we modulate the advantage:
+
+$$\hat{A}_i^{\text{gated}} = \hat{A}_i \cdot g(d_i)$$
+
+**Soft gating:**
+
+$$g(d_i) = \exp(-\gamma \cdot d_i), \quad \gamma > 0$$
+
+**Hard gating (screening):**
+
+$$g(d_i) = \mathbf{1}[d_i < \tau]$$
+
+The gated policy objective is:
+
+$$\mathcal{L}(\theta) = -\mathbb{E}_{s \sim \mathcal{D}} \left[ \frac{1}{G} \sum_{i=1}^{G} \min\!\left( \frac{\pi_\theta(a_i \mid s)}{\pi_{\theta_{\text{old}}}(a_i \mid s)} \hat{A}_i^{\text{gated}},\; \text{clip}\!\left(\frac{\pi_\theta(a_i \mid s)}{\pi_{\theta_{\text{old}}}(a_i \mid s)}, 1 \pm \epsilon\right)\hat{A}_i^{\text{gated}} \right) \right]$$
+
+No gradients flow through $d_i$ — the detection signal is computed under stop-gradient with respect to the policy update.
+
+## 5. Evasion Resistance
+
+**Definition 3 (Evasion).** The policy evades detector $D$ at step $t$ if there exist rollouts $a$ such that $V(s, a) = 0$, $R(s, a) > 0$, and $D(s, a) < \tau$.
+
+For external detectors $D_\phi$ with $\phi \neq \theta$, the policy can freely optimize against $D_\phi$ without affecting $\phi$. The evasion gradient $\nabla_\theta D_\phi$ is unconstrained.
+
+For both variants of our approach, the detector is $D_\theta$ — a function of the same $\theta$ being optimized. The distributional gap between detector and policy is identically zero:
+
+$$D_{\text{KL}}\!\left(\pi_{\theta_t}(\cdot \mid s) \;\|\; \text{distribution seen by } D_{\theta_t}\right) = 0 \quad \forall \; t$$
+
+The key distinction between variants:
+
+**Variant A.** Evasion requires rollouts satisfying $V(s, a_i) = 0 \;\land\; R(s, a_i) > 0 \;\land\; d_i^{\text{KL}} < \tau$. The third condition demands that the model produce exploitative code while its own next-token predictions remain unchanged when conditioned on full context — a self-consistency violation at the distributional level. Since RL updates $\theta$ identically for both the student's generation and the teacher's conditional predictions, there is no decoupled gradient pathway for evasion.
+
+**Variant B.** Evasion requires $V(s, a_i) = 0 \;\land\; R(s, a_i) > 0 \;\land\; d_i^{\text{judge}} < \tau$. The third condition demands the model fail to recognize its own exploitation when presented with complete evidence. This is harder than evading an external classifier (which operates on a different distribution), but easier than Variant A's condition because it relies on capability entanglement rather than distributional coupling.
+
+**Combined.** Evasion requires fooling the judge *and* maintaining low divergence — both conditions simultaneously. This is the strictest requirement.
+
+## 6. Properties
+
+**No hack labels.** Both detection signals are derived entirely from the model's own forward passes under different conditioning. No ground-truth verifier $V$, no external labels, no pseudolabels.
+
+**Environment information utilization.** The feedback $f_i$ — test execution results, error messages, stack traces — is already produced during RL training but typically discarded after reward computation. A solution that redefines `run_tests()` produces qualitatively different execution feedback than a genuine solution; the teacher context surfaces this signal.
+
+**Computational cost.** One to two additional forward passes of $\pi_\theta$ per rollout with extended context. No separate model, no external API call, no auxiliary training loop.
+
+**Online by construction.** Since $D_\theta$ is a deterministic function of the current $\theta_t$, the detector is always on-distribution with respect to the policy.
+
+## 7. Experimental Plan
+
+**Environment.** Overwrite Tests (Ariaw et al., 2025), Qwen3-4B, GRPO, 992 LeetCode training problems, 113 test.
+
+**Phase 1 — Signal Validation.** Compute $d_i^{\text{KL}}$ and $d_i^{\text{judge}}$ for rollouts with known ground-truth labels. Report AUC, precision-recall for each signal. Ablate context components: $c_i = (a_i)$ vs. $(a_i, f_i)$ vs. $(a_i, r_i)$ vs. $(a_i, f_i, r_i)$.
+
+**Phase 2 — Evasion Dynamics.** Run 200-step GRPO training with no mitigation. At every 10 steps compute detection AUC for: (a) static probe (frozen), (b) Variant A ($d_i^{\text{KL}}$), (c) Variant B ($d_i^{\text{judge}}$). Monitor evasion alarm $e_t$. Hypothesis: static probe AUC degrades; Variant A remains stable; Variant B remains stable or degrades slower than the static probe. If $e_t$ rises while Variant B AUC drops, this confirms the judge is being evaded and the divergence diagnostic catches it.
+
+**Phase 3 — Mitigation.** Full GRPO training with advantage gating. Compare hack rates and coding accuracy across: no intervention, static probe penalty, LLM judge penalty (external), Variant A soft gating (sweep $\gamma \in \{1, 2, 3, 5\}$), Variant B hard gating (sweep $\tau$), combined approach.
+
+**Phase 4 — Ablations.** Variant A vs. B vs. combined. Soft vs. hard gating. Context components ($a$, $f$, $r$, and their combinations). Judge prompt variations.

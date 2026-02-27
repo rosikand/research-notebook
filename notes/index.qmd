@@ -1,0 +1,20 @@
+---
+title: "Notes"
+listing:
+  contents: "*/index.qmd"
+  sort: "date desc"
+  type: table
+  categories: true
+  fields: [date, title, categories, description]
+  field-display-names:
+    date: "Date"
+    title: "Note"
+    categories: "Tags"
+    description: "Summary"
+  table-striped: true
+  table-hover: true
+---
+
+Technical notes, experiment logs, debugging journals, and everything else.
+
+Use `_template.qmd` as a starting point for new entries.

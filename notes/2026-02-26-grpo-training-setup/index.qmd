@@ -1,0 +1,39 @@
+---
+title: "GRPO Training Pipeline Setup Notes"
+description: "Technical setup notes for the GRPO training pipeline on MedEnv tasks."
+date: "2026-02-26"
+categories: [rl, medenv, infra]
+---
+
+## Environment
+
+- Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)
+- Framework: TRL + custom MedEnv integration
+- Hardware: 4x A100 80GB
+
+## Training Config
+
+```python
+training_config = {
+    "group_size": 8,          # completions per prompt
+    "learning_rate": 1e-6,
+    "kl_coeff": 0.05,
+    "max_turns": 15,          # max conversation turns per episode
+    "batch_size": 32,         # prompts per batch
+    "gradient_accumulation": 4,
+}
+```
+
+## Issues Encountered
+
+**OOM on long trajectories** — multi-turn conversations with 15 turns × 8 group samples blows up memory. Current workaround: truncate to 10 turns max during training, evaluate on full 15.
+
+**FHIR validation bottleneck** — the FHIR server becomes the bottleneck when validating 8 parallel trajectories. Need to batch validation calls or run a local validator.
+
+**Reward normalization** — raw rewards are in [0, 1] but the group baseline can push advantages to extreme values. Added reward clipping at ±3 std.
+
+## TODO
+
+- [ ] Profile the FHIR validation bottleneck
+- [ ] Try group sizes {4, 8, 16} to find the sweet spot
+- [ ] Set up W&B logging for reward distributions per task type
