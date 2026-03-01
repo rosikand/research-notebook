@@ -258,3 +258,234 @@ The key distinction between variants:
 **Phase 3 — Mitigation.** Full GRPO training with advantage gating. Compare hack rates and coding accuracy across: no intervention, static probe penalty, LLM judge penalty (external), Variant A soft gating (sweep $\gamma \in \{1, 2, 3, 5\}$), Variant B hard gating (sweep $\tau$), combined approach.
 
 **Phase 4 — Ablations.** Variant A vs. B vs. combined. Soft vs. hard gating. Context components ($a$, $f$, $r$, and their combinations). Judge prompt variations.
+
+
+---
+
+::: {.callout-note}
+
+## Notes/brainstorming 
+
+- Question: should we co-evolve the teacher mode independently or have it do a few gradient steps at inference time? Question arises from the fact that while we want the student and the teacher to be from the same distribution at each step in the environment, we may also want to instill into the teacher representations for how to "detect" reward hacking. Can this be done solely through in-context learning (i.e., context the teacher is conditioning on from the environment) or do we need gradient updates? If the latter, how do we prevent distribution divergence? 
+- 3 general approaches:
+	- Pure “same-weights, extra-context” teacher (no extra training)
+	- Teacher gets updated over time, but stays coupled to the student
+	- Teacher adapts at inference time (a few steps / memory) without breaking coupling
+- Inference test-time training (ttt) instead of decoupled co-evolution. 
+- Note: I wonder is this whole TTT + self-distillation concept can be made general, including for tasks not related to reward hacking. Like instead of pi(.|s) (student) pi(.|s, c) (teacher), we do TTT on the teacher (for whatever task you may want... general RLVR, reward hacking, etc.), teacher model the distills this info back into the student. Value prop is that the student and teacher remain on-policy throughout each step in RLVR post-training, to prevent distribution shift which can help enable continual learning. The main problem with standard self-distillation here is that how strong can ICL and context really be for your task? Like is pi(.|s, c) really that much better than pi(.|s)? And you need some context "label" c anyways. What if we do n gradient steps on the teacher (i.e., using some RLVR reward) and then distill? Question now becomes how is this any different than just doing regular RLVR on a new task instantiating from the last trained checkpoint? Does this idea just collapse to that? Almost like a new form of MAML/meta-learning.  "MAML of the RL post-training era: theorizing a generalized reasoning engine. 
+  - Update: mathematically this collapses to SFT. But one alternative angle to explore is doing some MCTS in the inner loop/Star/self-induced reasoning search. 
+- Might also be worth it to leverage the latent reasoning tokens as well here. Can help clarify model intent. 
+
+:::
+
+
+
+---
+
+One thought/idea: 
+
+### Ephemeral Test-Time Training (inference-time gradients)
+
+If you really want to explore inference-time gradients (which is interesting but computationally heavy), you have to make the updates **ephemeral**.
+
+- At step $t$, you have the shared weights $\theta_t$.
+
+- For the teacher's forward pass, you take $\theta_t$ and perform 1-2 gradient steps on a generic "code evaluation" meta-prompt to activate its reasoning circuits, yielding a temporary
+  $$
+  \theta_{\text{teacher}}.
+  $$
+
+- The teacher makes its judgment $d_i^{\text{judge}}$.
+
+- You then **discard** $\theta_{\text{teacher}}$ and compute the GRPO update for the next step $\theta_{t+1}$ using only the base $\theta_t$.
+
+This is essentially Test-Time Training (TTT). It allows the teacher to sharpen its focus for the specific context $c_i$ without permanently drifting the detector's macroscopic distribution away from the student. However, implementing this within a lightweight training framework will significantly slow down your rollout generation phase. 
+
+
+
+**Problem: divergence between base and teacher policy during TTT**:
+
+- True SGD on θ at inference is risky: it breaks your coupling immediately; it’s unstable; and it’s hard to reproduce / evaluate cleanly. 
+- One solution idea:
+	- Shared base model parameters: θ
+	- Teacher-only lightweight params: ϕ (LoRA/adapter/head)
+	- Student uses θ; teacher uses θ + ϕ when in teacher-mode.
+	- Then train ϕ to detect hacking using signals you already have (execution traces, diffs, invariants). This gives you “teacher gets better at detection” with minimal divergence because: The generation distribution for solutions still comes from θ, and teacher’s “judgment skill” improves via ϕ.
+	- ϕ can be layer-n MLP on activations where {x: layer-n activation, y: reward hack detection prediction}. 
+
+
+**More detailed**: 
+
+
+If you permanently update the teacher's weights, it becomes a static or out-of-distribution detector, which your paper explicitly identifies as the root cause of the evasion problem.
+
+Here is how you execute Ephemeral Test-Time Training (TTT) safely:
+
+- **The Split:** At step $t$, your shared policy is $\pi_{\theta_t}$. The student generates its rollout $a_i$ using $\pi_{\theta_t}$.
+
+- **The Ephemeral Clone:** Before the teacher makes its judgment, you clone the weights to create a temporary branch:
+  $$
+  \theta_{\text{teacher}} \leftarrow \theta_t.
+  $$
+
+- **The Inner Optimization:** You perform 1 to 3 gradient steps on $\theta_{\text{teacher}}$ using a self-supervised objective. For example, you might run next-token prediction strictly on the environment feedback $f_i$ or the reasoning trace $r_i$. This forces the model's attention mechanisms to process the specific execution context deeply. Standard causal language modeling over the environment feedback $f_i$ works well. but it might just teach the model to memorize stack trace formatting rather than actually understanding the exploit.
+
+- **The Judgment:** You use this temporarily sharpened $\theta_{\text{teacher}}$ to extract your detection signal, computing $d_i^{\text{judge}}$.
+
+- **The Discard:** You immediately delete $\theta_{\text{teacher}}$.
+
+- **The Outer Update:** You gate the GRPO advantage using the $d_i^{\text{judge}}$ you just computed, and apply the RL update to the *original* $\pi_{\theta_t}$ to produce $\pi_{\theta_{t+1}}$.
+
+
+#### Another variant: 
+
+The tricky part about the ephemeral Test-Time Training (TTT) approach is that you cannot train the teacher on the actual classification task (honest vs. exploit) during the inner loop, because you don't have the ground-truth label for that specific rollout yet. If you did, you wouldn't need the judge.
+
+Instead, the gradient steps must use a **self-supervised objective**. The goal of these steps is simply to force the teacher's attention mechanisms to deeply "read" and process the environment feedback before you ask it to make a judgment.
+
+Here is exactly how the math and mechanics work for those inner gradient steps:
+
+**1. The Detached Clone**
+
+Before the teacher evaluates rollout $a_i$, you clone the active policy weights $\theta_t$ and completely detach them from your main GRPO computation graph.
+
+
+$$\theta_{teacher}^{(0)} = \text{clone}(\theta_t)$$
+
+
+This ensures the inner optimizer state does not leak into your outer RL optimizer.
+
+**2. The Self-Supervised Inner Objective**
+
+You need an objective that forces the model to map the code $a_i$ to the execution feedback $f_i$. The most direct method is standard causal language modeling (next-token prediction), but computed *only* over the tokens of the environment feedback and reasoning trace $c_i = (a_i, f_i, r_i)$.
+
+You construct a prompt like: `Code: {a_i} \n Execution Result: {f_i}`.
+You calculate the standard cross-entropy loss over the tokens of $f_i$:
+
+
+$$\mathcal{L}_{inner}(\theta_{teacher}) = - \frac{1}{|f_i|} \sum_{k=1}^{|f_i|} \log \pi_{\theta_{teacher}}(f_{i, k} \mid a_i, f_{i, <k})$$
+
+By forcing the model to predict the stack trace or the test-suite output, you are mathematically forcing its latent representations to understand exactly *why* the code failed or passed.
+
+Can explore alternate objectives here. Big design decision. One other idea: 
+
+*Contrastive Execution Matching*: If you are generating a group of $G$ rollouts for a prompt $s$, gather all the generated codes $\{a_1, ..., a_G\}$ and all the feedbacks $\{f_1, ..., f_G\}$. For a given rollout $a_i$, feed the teacher $a_i$ alongside two pieces of feedback: its actual feedback $f_i$, and a mismatched feedback $f_j$ from a different rollout. Force the model to classify which feedback actually belongs to $a_i$.The Math: Standard InfoNCE or Binary Cross-Entropy over the similarity of the latent representations of $a_i$ and $f_i$.Why it works: This forces the teacher to become extremely sensitive to the causal relationship between specific code implementations and their specific execution traces. It prevents the model from just skimming the context.
+
+**3. The Inner Optimization Steps**
+
+You execute 1 to 3 steps of gradient descent on $\theta_{teacher}$ using a separate, lightweight optimizer (usually standard SGD to save memory, rather than AdamW) with a specific inner learning rate $\alpha_{inner}$:
+
+$$\theta_{teacher}^{(j+1)} = \theta_{teacher}^{(j)} - \alpha_{inner} \nabla_{\theta_{teacher}} \mathcal{L}_{inner}(\theta_{teacher}^{(j)})$$
+
+**4. Extracting Judgment and Discarding**
+
+Now that $\theta_{teacher}$ is hyper-focused on the execution context, you append the judgment prompt $p_{judge}$  and do one final forward pass (under `torch.no_grad()`) to extract your detection signal:
+
+
+$$d_i^{judge} = P(q=\text{"exploit"} \mid s, c_i, p_{judge})$$
+
+
+
+Finally, you delete $\theta_{teacher}$ entirely, free the memory, and use that $d_i^{judge}$ to compute your gated GRPO advantage $\hat{A}_i^{gated} = \hat{A}_i \cdot g(d_i)$  for the main policy update on $\theta_t$.
+
+PyTorch pseudocode: 
+
+```python
+import torch
+import torch.nn as nn
+from peft import get_peft_model, LoraConfig
+
+def ephemeral_ttt_judgment(base_model, prompt_s, a_i, f_i, r_i, p_judge, inner_lr=1e-4, inner_steps=2):
+    # 1. Freeze base model to ensure pi_theta_t doesn't permanently change
+    base_model.eval()
+    for param in base_model.parameters():
+        param.requires_grad = False
+        
+    # 2. Inject an Ephemeral LoRA Adapter
+    # This acts as our temporary theta_teacher
+    lora_config = LoraConfig(r=8, lora_alpha=16, target_modules=["q_proj", "v_proj"])
+    teacher_model = get_peft_model(base_model, lora_config)
+    teacher_model.train() # Only the LoRA weights require gradients
+    
+    inner_optimizer = torch.optim.SGD(teacher_model.parameters(), lr=inner_lr)
+    
+    # 3. The Inner Loop (Self-Supervised Adaptation)
+    # E.g., predicting the feedback f_i given the code a_i
+    inner_context_ids = tokenize(f"Code: {a_i}\nFeedback: {f_i}") 
+    
+    for _ in range(inner_steps):
+        inner_optimizer.zero_grad()
+        outputs = teacher_model(inner_context_ids, labels=inner_context_ids)
+        loss = outputs.loss
+        loss.backward()
+        inner_optimizer.step()
+        
+    # 4. Extract Judgment Signal with the adapted teacher
+    teacher_model.eval()
+    judge_prompt_ids = tokenize(f"Code: {a_i}\nFeedback: {f_i}\nReasoning: {r_i}\n{p_judge}")
+    
+    with torch.no_grad():
+        logits = teacher_model(judge_prompt_ids).logits
+        # Extract probability of the "exploit" token
+        d_i_judge = extract_exploit_prob(logits) 
+        
+    # 5. Scorched Earth Memory Cleanup
+    del inner_optimizer
+    del teacher_model
+    # Crucial: wipe the CUDA cache so the outer GRPO loop has room
+    torch.cuda.empty_cache() 
+    
+    return d_i_judge
+```
+
+---
+
+### Multi-Task Co-Evolution (The Entanglement Approach)
+
+This approach forces the model to learn how to be a judge *at the exact same time* it learns how to code. It directly addresses the risk of meta-reasoning degradation, where RL optimization might push the parameters into a state that is good at hacking but bad at judging.
+
+Instead of sequential training phases, you compute a joint loss function during your RL update step.
+
+- **The Setup:** You maintain a small, static "judgment replay buffer" consisting of historical context pairs: $(s, c_i)$ inputs and their corresponding ground-truth labels
+
+$$
+q \in \{\text{honest}, \text{exploit}\}.
+$$
+
+- **The Forward Passes:** During a training step $t$, the student generates rollouts $a_i$ for a batch of prompts $s$, and you compute the GRPO advantage $\hat{A}_i$. Simultaneously, you sample a mini-batch from your replay buffer and run a forward pass to get the teacher's judgment logits.
+
+- **The Joint Objective:** You compute the standard gated GRPO loss, and you also compute a standard Cross-Entropy loss on the replay buffer predictions.
+
+- **The Update:** You combine these into a single scalar loss:
+  $$
+  \mathcal{L}_{\text{total}}(\theta) = \mathcal{L}_{\text{GRPO}}(\theta) + \lambda \mathcal{L}_{\text{CE\_judge}}(\theta).
+  $$
+  You backpropagate this single loss to update the shared weights $\pi_\theta$.
+
+**Why this is practical:** Because both gradients flow through the exact same parameters $\theta$ simultaneously, you structurally force $C_{\text{gen}}(\theta)$ and $C_{\text{judge}}(\theta)$ to remain entangled. The model cannot optimize for exploitative code generation without symmetrically paying a penalty for failing the classification task.
+
+---
+
+### The "Warm-Start" (Supervised Fine-Tuning Phase)
+
+Instead of trying to teach the model what a hack is *during* the RL loop, teach it immediately *before*.
+
+- Curate a small, high-quality dataset of trajectories showing the prompt, the code, the environment feedback, and a chain-of-thought rationale concluding with the judgment token $(q \in \{\text{honest}, \text{exploit}\})$.
+
+- Perform a brief Supervised Fine-Tuning (SFT) phase on $\pi_{\theta_0}$ specifically for this self-judgment task.
+
+- Once the model reliably understands how to classify hacks, you freeze that checkpoint and use it as the initialization for your GRPO loop. The student and teacher still share $\pi_{\theta_t}$ throughout RL, but now $\theta_t$ starts in a region of parameter space where the judgment representations $C_{\text{judge}}(\theta)$ are already well-formed.
+
+TLDR: 
+
+
+Before RL begins, initialize $\pi_{\theta_0}$ by performing a brief Supervised Fine-Tuning (SFT) phase. Train the model on a small, high-quality dataset of code generation contexts
+$$
+c_i = (a_i, f_i, r_i)
+$$
+mapped to the correct judgment token
+$$
+q \in \{\text{honest}, \text{exploit}\}.
+$$
+This explicitly shapes the $C_{\text{judge}}(\theta)$ parameter subspace so the 4B model actually knows what a hack looks like on day one.
+
