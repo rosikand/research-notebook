@@ -1,0 +1,21 @@
+[
+  {
+    "listing": "/ideas/index.html",
+    "items": [
+      "/ideas/2026-02-27-adverserial-reward-hacking/index.html",
+      "/ideas/2026-02-27-self-distill-reward-hacking/index.html"
+    ]
+  },
+  {
+    "listing": "/paper-notes/index.html",
+    "items": [
+      "/paper-notes/2026-02-26-deepseekmath-grpo/index.html"
+    ]
+  },
+  {
+    "listing": "/notes/index.html",
+    "items": [
+      "/notes/2026-02-26-grpo-training-setup/index.html"
+    ]
+  }
+]

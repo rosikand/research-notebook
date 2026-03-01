@@ -1,0 +1,18 @@
+/* Custom styles for research notebook */
+
+/* Slightly tighter max-width for readability */
+.content {
+  max-width: 48rem;
+}
+
+/* Code block tweaks */
+div.sourceCode {
+  border-radius: 6px;
+  font-size: 0.9em;
+}
+
+/* Task list styling */
+ul:has(> li > input[type="checkbox"]) {
+  list-style: none;
+  padding-left: 0;
+}

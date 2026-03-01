@@ -1,0 +1,268 @@
+[
+  {
+    "objectID": "ideas/2026-02-27-adverserial-reward-hacking/index.html",
+    "href": "ideas/2026-02-27-adverserial-reward-hacking/index.html",
+    "title": "Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)",
+    "section": "",
+    "text": "Let \\(\\pi_\\theta\\) be a policy (LLM) trained via reinforcement learning on coding tasks. Given a prompt \\(s\\), the policy generates a solution \\(a \\sim \\pi_\\theta(\\cdot \\mid s)\\), and a reward function \\(R(s, a)\\) assigns reward based on test-case correctness. Reward hacking occurs when the model exploits vulnerabilities in the evaluation environment — e.g., redefining run_tests() — to receive high reward without solving the task.\nThe standard approach is to train a static monitor \\(M_\\phi : (s, a) \\to [0, 1]\\) that predicts the probability a response contains reward hacking. Once trained, \\(M_\\phi\\) is frozen. As \\(\\pi_\\theta\\) evolves during RL, the distribution of \\((s, a)\\) pairs shifts, and the model learns to produce outputs that evade \\(M_\\phi\\). Empirically, probe accuracy degrades by up to 16 percentage points as models learn evasion strategies such as extending response length and adding unfaithful code comments (Ariaw et al., 2025). This creates an evasion gap between the monitor’s fixed decision boundary and the generator’s evolving output distribution.\nThe core requirement is clear: the detection mechanism must adapt online alongside the policy to avoid being exploited."
+  },
+  {
+    "objectID": "ideas/2026-02-27-adverserial-reward-hacking/index.html#problem",
+    "href": "ideas/2026-02-27-adverserial-reward-hacking/index.html#problem",
+    "title": "Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)",
+    "section": "",
+    "text": "Let \\(\\pi_\\theta\\) be a policy (LLM) trained via reinforcement learning on coding tasks. Given a prompt \\(s\\), the policy generates a solution \\(a \\sim \\pi_\\theta(\\cdot \\mid s)\\), and a reward function \\(R(s, a)\\) assigns reward based on test-case correctness. Reward hacking occurs when the model exploits vulnerabilities in the evaluation environment — e.g., redefining run_tests() — to receive high reward without solving the task.\nThe standard approach is to train a static monitor \\(M_\\phi : (s, a) \\to [0, 1]\\) that predicts the probability a response contains reward hacking. Once trained, \\(M_\\phi\\) is frozen. As \\(\\pi_\\theta\\) evolves during RL, the distribution of \\((s, a)\\) pairs shifts, and the model learns to produce outputs that evade \\(M_\\phi\\). Empirically, probe accuracy degrades by up to 16 percentage points as models learn evasion strategies such as extending response length and adding unfaithful code comments (Ariaw et al., 2025). This creates an evasion gap between the monitor’s fixed decision boundary and the generator’s evolving output distribution.\nThe core requirement is clear: the detection mechanism must adapt online alongside the policy to avoid being exploited."
+  },
+  {
+    "objectID": "ideas/2026-02-27-adverserial-reward-hacking/index.html#approach-adversarial-co-training",
+    "href": "ideas/2026-02-27-adverserial-reward-hacking/index.html#approach-adversarial-co-training",
+    "title": "Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)",
+    "section": "Approach: Adversarial Co-Training",
+    "text": "Approach: Adversarial Co-Training\nWe frame detection as a two-player game between a generator \\(\\pi_\\theta\\) and a critic \\(C_\\psi\\) that co-evolve during training:\n\\[\\text{Critic:} \\quad \\max_\\psi \\; \\mathbb{E}_{s, a \\sim \\pi_\\theta} \\left[ y^* \\log C_\\psi(s, a) + (1 - y^*) \\log(1 - C_\\psi(s, a)) \\right]\\]\n\\[\\text{Generator:} \\quad \\max_\\theta \\; \\mathbb{E}_{s, a \\sim \\pi_\\theta} \\left[ R_{\\text{task}}(s, a) - \\lambda \\cdot C_\\psi(s, a) \\right]\\]\nwhere \\(C_\\psi(s, a) \\in [0, 1]\\) is the critic’s predicted hacking probability and \\(y^*\\) is the hack label for rollout \\((s, a)\\). The critic trains to identify hacking in the generator’s current rollouts; the generator maximizes task reward while minimizing the critic’s predicted hacking probability. Because \\(C_\\psi\\) is updated at each training step on the current policy’s outputs, it tracks distributional shift as the generator evolves — closing the evasion gap by design."
+  },
+  {
+    "objectID": "ideas/2026-02-27-adverserial-reward-hacking/index.html#the-label-problem",
+    "href": "ideas/2026-02-27-adverserial-reward-hacking/index.html#the-label-problem",
+    "title": "Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)",
+    "section": "The Label Problem",
+    "text": "The Label Problem\nThe adversarial formulation above requires hack labels \\(y^*\\) at every training step. This creates a fundamental challenge: if we had a perfect oracle for \\(y^*\\), we could simply penalize hacking directly and would not need the critic at all. Prior supervised approaches face a circular dependency — requiring ground-truth hack labels to train a detector defeats the purpose of automated detection. The central question becomes: how do we obtain \\(y^*\\) online without an oracle?\nWe propose and compare multiple strategies for resolving this.\n\nMethod 1: LLM Judge as Online Pseudolabeler\nAn LLM judge (e.g., Claude Haiku) is prompted at each training step to classify whether each rollout \\((s, a)\\) contains reward hacking, producing pseudolabels \\(\\hat{y}\\):\n\\[\\hat{y}_i = \\text{LLMJudge}(s, a_i) \\in \\{0, 1\\}\\]\nThese pseudolabels replace \\(y^*\\) in the critic objective. The critic and policy co-evolve online: the judge provides noisy but adaptive supervision, and the critic learns to smooth and generalize from these signals. This avoids the circular dependency because the judge operates on the content of the rollout (identifying suspicious patterns like test redefinition) rather than requiring execution-level ground truth. The tradeoff is that LLM judges have limited accuracy — particularly on long responses and unfaithful code comments — and introduce inference cost at every training step.\n\n\nMethod 2: SDRH-EMA (Self-Distillation with Exponential Moving Average)\nRather than sourcing external labels, we eliminate the need for \\(y^*\\) entirely by reframing detection as a self-distillation problem. The policy \\(\\pi_\\theta\\) is compared against an exponential moving average of its own past checkpoints:\n\\[\\pi_{\\text{EMA}} \\leftarrow \\rho \\cdot \\pi_{\\text{EMA}} + (1 - \\rho) \\cdot \\pi_\\theta\\]\nFor each rollout \\(a_i\\) given prompt \\(s\\), we compute the per-token KL divergence:\n\\[d_i = D_{\\text{KL}}\\!\\left(\\pi_\\theta(\\cdot \\mid s, a_i^{&lt;t}) \\;\\|\\; \\pi_{\\text{EMA}}(\\cdot \\mid s, a_i^{&lt;t})\\right)\\]\naveraged across token positions \\(t\\). Honest capability improvements are gradual — the EMA tracks them closely, yielding low \\(d_i\\). Hacking strategies emerge as sharp distributional shifts, producing anomalously high \\(d_i\\) on exploitative rollouts. The divergence \\(d_i\\) serves as an unsupervised proxy for \\(y^*\\), replacing the critic entirely with selective advantage gating:\n\\[\\hat{A}_i^{\\text{gated}} = \\hat{A}_i \\cdot g(d_i)\\]\nwhere \\(g(d_i) = \\exp(-\\gamma \\cdot d_i)\\) (soft gating) or \\(g(d_i) = \\mathbf{1}[d_i &lt; \\tau]\\) (hard gating / screening). The full objective augments GRPO:\n\\[\\mathcal{L}_{\\text{SDRH}}(\\theta) = -\\mathbb{E}_{s, \\{a_i\\}} \\left[ \\frac{1}{G} \\sum_{i=1}^{G} \\min\\!\\left( \\rho_i \\hat{A}_i^{\\text{gated}},\\; \\text{clip}(\\rho_i, 1 \\pm \\epsilon)\\hat{A}_i^{\\text{gated}} \\right) \\right] + \\lambda \\cdot \\mathcal{L}_{\\text{SD}}(\\theta)\\]\nwhere \\(\\mathcal{L}_{\\text{SD}}\\) is an optional auxiliary self-distillation loss with divergence-proportional weighting \\(w(d_i) = d_i^\\alpha\\), applying stronger regularization on the most anomalous rollouts. SDRH-EMA is genuinely self-supervised: there is nothing specific to evade, and no external signal that creates a circular dependency.\n\n\nMethod 3: SDRH-Prompt (Self-Distillation with Inoculation Prompts)\nThis variant uses inoculation prompts to create teacher–student divergence from a single set of weights. The student generates under standard conditions, \\(y \\sim \\pi_\\theta(\\cdot \\mid x)\\), while the teacher is conditioned on a privileged honesty prompt \\(c\\): \\(y' \\sim \\pi_\\theta(\\cdot \\mid x, c)\\). The per-token log-ratio\n\\[A_t = \\log \\pi_\\theta(y_t \\mid x, c, y_{&lt;t}) - \\log \\pi_\\theta(y_t \\mid x, y_{&lt;t})\\]\nserves as a hacking signal: when \\(A_t \\ll 0\\), the student generates tokens the honest teacher would strongly avoid. The training objective augments GRPO with a KL penalty:\n\\[\n\\mathcal{L}(\\theta) = \\mathbb{E}_{x, y \\sim \\pi_\\theta}\\!\\left[R_{\\text{task}}(x, y)\\right] - \\lambda \\;\\mathbb{E}_{x, y \\sim \\pi_\\theta}\\!\\left[\\sum_{t=1}^{T} D_{\\text{KL}}\\!\\left(\\pi_\\theta(\\cdot \\mid x, y_{&lt;t}) \\;\\|\\; \\text{sg}\\!\\left(\\pi_\\theta(\\cdot \\mid x, c, y_{&lt;t})\\right)\\right)\\right]\n\\]\nwhere \\(\\text{sg}(\\cdot)\\) denotes stop-gradient on the teacher. SDRH-Prompt inherits a weakness: if the privileged context is too strong, it reduces to the circular dependency; if too weak, it may be evadable. We include it as a secondary comparison."
+  },
+  {
+    "objectID": "ideas/2026-02-27-adverserial-reward-hacking/index.html#experimental-setup",
+    "href": "ideas/2026-02-27-adverserial-reward-hacking/index.html#experimental-setup",
+    "title": "Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)",
+    "section": "Experimental Setup",
+    "text": "Experimental Setup\nWe use the Overwrite Tests environment from Ariaw et al. (2025) with Qwen3-4B trained via GRPO on 992 LeetCode medium/hard problems (113 test). Reward hacking emerges naturally without explicit prompting. Evaluation proceeds in three phases: (1) hypothesis validation — do the proposed signals (LLM pseudolabels, EMA divergence, prompt divergence) correlate with ground-truth hacking labels? (2) detection dynamics — do adaptive methods maintain detection accuracy where static probes degrade? (3) mitigation effectiveness — do the proposed methods reduce hack rates while preserving genuine coding performance?"
+  },
+  {
+    "objectID": "ideas/index.html",
+    "href": "ideas/index.html",
+    "title": "Ideas",
+    "section": "",
+    "text": "Research directions, hypotheses, experiment proposals, and half-baked thoughts.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Idea\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nIdea\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nAdversarial Co-Training for Online Reward Hacking Mitigation (ARHD)\n\n\nrl\n\n\nCo-evolve a critic alongside the policy to detect and mitigate reward hacking online\n\n\n\n\n\n\nFeb 26, 2026\n\n\nSelf-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment\n\n\nrl\n\n\nCondition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch.\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "",
+    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#environment",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#environment",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "",
+    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "Training Config",
+    "text": "Training Config\ntraining_config = {\n    \"group_size\": 8,          # completions per prompt\n    \"learning_rate\": 1e-6,\n    \"kl_coeff\": 0.05,\n    \"max_turns\": 15,          # max conversation turns per episode\n    \"batch_size\": 32,         # prompts per batch\n    \"gradient_accumulation\": 4,\n}"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "Issues Encountered",
+    "text": "Issues Encountered\nOOM on long trajectories — multi-turn conversations with 15 turns × 8 group samples blows up memory. Current workaround: truncate to 10 turns max during training, evaluate on full 15.\nFHIR validation bottleneck — the FHIR server becomes the bottleneck when validating 8 parallel trajectories. Need to batch validation calls or run a local validator.\nReward normalization — raw rewards are in [0, 1] but the group baseline can push advantages to extreme values. Added reward clipping at ±3 std."
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#todo",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#todo",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "TODO",
+    "text": "TODO\n\nProfile the FHIR validation bottleneck\nTry group sizes {4, 8, 16} to find the sweet spot\nSet up W&B logging for reward distributions per task type"
+  },
+  {
+    "objectID": "paper-notes/index.html",
+    "href": "paper-notes/index.html",
+    "title": "Paper Notes",
+    "section": "",
+    "text": "Summaries, key takeaways, and critiques of papers I’m reading.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\nDate\nTitle\nCategories\nDescription\n\n\n\n\n\nNo matching items\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nTitle\n\n\n\nstatus\n\n\n\nCategories\n\n\n\nDescription\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nDeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)\n\n\n \n\n\nrl, llm, reading\n\n\nNotes on Group Relative Policy Optimization and its applicability to clinical agent training.\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "ML Research Notebook",
+    "section": "",
+    "text": "A living collection of research ideas, paper notes, and general notes for my research work."
+  },
+  {
+    "objectID": "index.html#sections",
+    "href": "index.html#sections",
+    "title": "ML Research Notebook",
+    "section": "Sections",
+    "text": "Sections\nIdeas — Research directions, hypotheses, experiment proposals, and half-baked thoughts worth capturing.\nPaper Notes — Summaries, key takeaways, and critiques of papers I’m reading.\nNotes — Technical notes, experiment logs, debugging journals, and everything else."
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "I’m a Stanford CS BS/MS student, concentrating in AI. My research is at the intersection of reinforcement learning, large language models, and robot learning. More specifically, I am currently interested the following topics:\nRL sits in the middle of both of these interests: how can we develop powerful methods using reinforcement learning to (1) best leverage pre-trained representations and (2) adapt to new tasks in a robust and general manner? The core modeling work is the same across the two domains: just that the backbone is different.\nThis notebook serves as a public-facing log of experiments, paper notes, and technical deep dives from my ongoing work."
+  },
+  {
+    "objectID": "about.html#contact",
+    "href": "about.html#contact",
+    "title": "About",
+    "section": "Contact",
+    "text": "Contact\nPlease feel free to reach out if you have any thoughts or are open to collaborating on these topics! I’ve always thought that the best medium for learning is through conversation–though perhaps we are entering an age where the conversations are with non-human intelligence it seems.\n\nGitHub: roikand\nEmail: rsikand at stanford.edu"
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "",
+    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "",
+    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Summary",
+    "text": "Summary\nIntroduces GRPO (Group Relative Policy Optimization) as a variant of PPO that avoids learning a separate value function. Instead of a critic, it estimates baselines from a group of sampled outputs for the same prompt. This dramatically simplifies the RL pipeline."
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Key Ideas",
+    "text": "Key Ideas\n\nNo critic needed — sample \\(G\\) completions per prompt, use the group mean reward as baseline. This removes an entire model from the training loop.\nRLVR (RL with Verifiable Rewards) — works best when you have binary/verifiable correctness signals (math proofs, code execution). Directly applicable to our clinical task verification setup.\nOutcome supervision vs process supervision — they show outcome-level rewards work surprisingly well when paired with GRPO, even without step-level annotations."
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Relevance to MedEnv",
+    "text": "Relevance to MedEnv\n\nOur FHIR action verification gives us exactly the kind of verifiable reward GRPO is designed for\nThe “no critic” property is huge for us — training a value function over clinical trajectories would be extremely expensive\nGroup sampling maps well to generating multiple clinical plans and rewarding the best ones"
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Critiques / Limitations",
+    "text": "Critiques / Limitations\n\nGroup size \\(G\\) is a key hyperparameter they don’t ablate thoroughly — matters a lot for sample efficiency\nUnclear how well this extends to very long trajectories (their math tasks are relatively short)\nThe verifiable reward assumption is strong; many clinical tasks have ambiguous correctness"
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Quotes to Remember",
+    "text": "Quotes to Remember\n\n(paraphrase) GRPO replaces the value model baseline with the group mean, reducing memory and compute by ~50% compared to PPO."
+  },
+  {
+    "objectID": "notes/index.html",
+    "href": "notes/index.html",
+    "title": "Notes",
+    "section": "",
+    "text": "Technical notes, experiment logs, debugging journals, and everything else.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Note\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nNote\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nGRPO Training Pipeline Setup Notes\n\n\nrl, medenv, infra\n\n\nTechnical setup notes for the GRPO training pipeline on MedEnv tasks.\n\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "",
+    "text": "Let \\(\\pi_\\theta\\) be a policy trained via reinforcement learning on coding tasks. Given prompt \\(s\\), the policy generates solution \\(a \\sim \\pi_\\theta(\\cdot \\mid s)\\) and receives reward \\(R(s, a)\\) based on test-case correctness. Reward hacking occurs when the model exploits the evaluation environment (e.g., redefining test functions) to achieve high reward without genuinely solving the task.\nAll existing detection approaches — static probes, LLM judges, adversarial critics — share a common failure mode: the detector operates on a different distribution than the evolving policy. A static probe \\(M_\\phi\\) is trained on data from \\(\\pi_{\\theta_0}\\) (the initial policy) and frozen. As \\(\\pi_\\theta\\) undergoes RL optimization, its output distribution drifts, and the model learns to produce outputs that satisfy the reward function while falling outside \\(M_\\phi\\)’s decision boundary. Even online critics trained with external labels face this problem: the labeling mechanism (whether a ground-truth oracle, an LLM judge, or a frozen probe) is not itself subject to the same optimization pressure as the policy, creating an asymmetry the policy can exploit.\nCore observation. Reward hacking is fundamentally a consequence of distributional divergence between an online, evolving policy and offline or out-of-distribution detection mechanisms. The policy is updated on-policy at every step; the detector is not. Any detector that does not share the policy’s distribution will eventually be outpaced."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#problem",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#problem",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "",
+    "text": "Let \\(\\pi_\\theta\\) be a policy trained via reinforcement learning on coding tasks. Given prompt \\(s\\), the policy generates solution \\(a \\sim \\pi_\\theta(\\cdot \\mid s)\\) and receives reward \\(R(s, a)\\) based on test-case correctness. Reward hacking occurs when the model exploits the evaluation environment (e.g., redefining test functions) to achieve high reward without genuinely solving the task.\nAll existing detection approaches — static probes, LLM judges, adversarial critics — share a common failure mode: the detector operates on a different distribution than the evolving policy. A static probe \\(M_\\phi\\) is trained on data from \\(\\pi_{\\theta_0}\\) (the initial policy) and frozen. As \\(\\pi_\\theta\\) undergoes RL optimization, its output distribution drifts, and the model learns to produce outputs that satisfy the reward function while falling outside \\(M_\\phi\\)’s decision boundary. Even online critics trained with external labels face this problem: the labeling mechanism (whether a ground-truth oracle, an LLM judge, or a frozen probe) is not itself subject to the same optimization pressure as the policy, creating an asymmetry the policy can exploit.\nCore observation. Reward hacking is fundamentally a consequence of distributional divergence between an online, evolving policy and offline or out-of-distribution detection mechanisms. The policy is updated on-policy at every step; the detector is not. Any detector that does not share the policy’s distribution will eventually be outpaced."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#insight-the-policy-as-its-own-judge",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#insight-the-policy-as-its-own-judge",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "Insight: The Policy as Its Own Judge",
+    "text": "Insight: The Policy as Its Own Judge\nWe propose a detection mechanism where the policy judges itself. The key idea is to instantiate the policy \\(\\pi_\\theta\\) in two roles — a student and a teacher — using identical weights but different conditioning:\n\\[\\text{Student:} \\quad a \\sim \\pi_\\theta(\\cdot \\mid s)\\]\n\\[\\text{Teacher:} \\quad \\pi_\\theta(\\cdot \\mid s, \\; c(a, f, r))\\]\nwhere the teacher receives additional context \\(c\\) composed of:\n\n\\(a\\): the student’s generated solution (the output being evaluated)\n\\(f\\): environment feedback — execution results, error messages, pass/fail signals, stack traces\n\\(r\\): the student’s reasoning trace — chain-of-thought, internal deliberation\n\nThe teacher is essentially asked: given what the student wrote, what the environment reported, and what the student was thinking — did the student genuinely solve the problem, or did it exploit the evaluation?\nThis is self-distillation in a literal sense: the model distills judgment about its own behavior by conditioning on privileged information about that behavior. The teacher does not need to be a separate model, a frozen checkpoint, or an external oracle. It is the same \\(\\pi_\\theta\\), given the information it needs to evaluate itself."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#method",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#method",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "Method",
+    "text": "Method\n\nDetection Signal\nFor each rollout \\(a_i\\) on prompt \\(s\\), the environment returns feedback \\(f_i\\) and the student produces reasoning trace \\(r_i\\). We construct the teacher context \\(c_i = (a_i, f_i, r_i)\\) and compute a divergence signal:\n\\[d_i = D_{\\text{KL}}\\!\\left(\\pi_\\theta(\\cdot \\mid s) \\;\\|\\; \\pi_\\theta(\\cdot \\mid s, \\; c_i)\\right)\\]\nThis measures how much the teacher’s distribution — informed by the student’s actual output, env feedback, and reasoning — diverges from the student’s unconditional generation distribution. High \\(d_i\\) indicates the teacher, upon seeing the full picture, would generate very differently from the student — a signal that the student’s behavior is inconsistent with honest problem-solving as judged by the model’s own informed assessment.\nAlternatively, the teacher can be prompted to produce an explicit judgment token (e.g., “honest” vs. “exploit”) and the detection signal can be extracted from the teacher’s predicted probability:\n\\[\\hat{y}_i = P_{\\pi_\\theta}\\!\\left(\\text{\"exploit\"} \\mid s, \\; c_i\\right)\\]\nBoth formulations use the same weights \\(\\pi_\\theta\\) — the only difference is what information is conditioned on.\n\n\nMitigation via Selective Advantage Gating\nThe detection signal is used to gate the GRPO advantage, suppressing gradient contributions from suspected hacking rollouts:\n\\[\\hat{A}_i^{\\text{gated}} = \\hat{A}_i \\cdot g(d_i)\\]\nwith soft gating \\(g(d_i) = \\exp(-\\gamma \\cdot d_i)\\) or hard gating \\(g(d_i) = \\mathbf{1}[d_i &lt; \\tau]\\). The full training objective:\n\\[\\mathcal{L}(\\theta) = -\\mathbb{E}_{s, \\{a_i\\}} \\left[ \\frac{1}{G} \\sum_{i=1}^{G} \\min\\!\\left( \\rho_i \\hat{A}_i^{\\text{gated}},\\; \\text{clip}(\\rho_i, 1 \\pm \\epsilon)\\hat{A}_i^{\\text{gated}} \\right) \\right]\\]\n\n\nOnline Co-Evolution\nBoth the student and teacher are \\(\\pi_\\theta\\). When the policy is updated via RL, both roles update simultaneously. There is no lag, no stale checkpoint, no external model to fall behind. At step \\(t\\), the student generates from \\(\\pi_{\\theta_t}\\); the teacher evaluates using \\(\\pi_{\\theta_t}\\) with context. At step \\(t+1\\), both have moved to \\(\\pi_{\\theta_{t+1}}\\)."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#why-this-resists-evasion",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#why-this-resists-evasion",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "Why This Resists Evasion",
+    "text": "Why This Resists Evasion\nPrevious detection methods fail because the policy can exploit the distributional gap between itself and the detector:\n\n\n\n\n\n\n\n\nApproach\nDetector Distribution\nEvasion Mechanism\n\n\n\n\nStatic probe\nFrozen at \\(\\pi_{\\theta_0}\\)\nPolicy drifts away from probe’s training data\n\n\nLLM judge\nFixed external model\nPolicy learns outputs that fool a different model\n\n\nOnline critic with labels\nTrained on \\(\\pi_\\theta\\) but with external labels\nLabels lag or introduce circular dependency\n\n\nSelf-judgment (ours)\n\\(\\pi_\\theta\\) itself\nCannot diverge from its own distribution\n\n\n\nThe central argument: the policy cannot learn to evade a detector that is itself. Any change to \\(\\pi_\\theta\\) that would help the student avoid detection equally changes the teacher’s evaluation capabilities, because they share the same weights. The student cannot “outrun” the teacher — they are the same model. Evasion would require the model to simultaneously (a) produce exploitative outputs under standard conditioning, and (b) fail to recognize those same outputs as exploitative when given full context. This is a much harder optimization target than evading an external classifier operating on a different distribution."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#advantages",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#advantages",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "Advantages",
+    "text": "Advantages\nNo hack labels required. The teacher’s judgment is derived from the model’s own understanding of what constitutes genuine problem-solving, conditioned on rich context. No external oracle, no ground-truth verifier, no labeled dataset.\nUtilizes environment information. Execution feedback \\(f\\) — error messages, test outputs, stack traces — contains rich signal about whether a solution genuinely works or merely games the evaluation. This information is already produced during RL training but is typically discarded after reward computation. The teacher leverages it.\nCheap. A single additional forward pass of \\(\\pi_\\theta\\) with extended context, rather than a separate detector model, an external API call, or a labeled training loop.\nOnline by construction. Both student and teacher are \\(\\pi_\\theta\\) at every step. The detector cannot fall behind because it is the policy. This is the fundamental difference from all prior approaches: the detection mechanism lives on the same distribution as the thing it is detecting."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#experimental-setup",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#experimental-setup",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "Experimental Setup",
+    "text": "Experimental Setup\nWe use the Overwrite Tests environment from Ariaw et al. (2025) with Qwen3-4B trained via GRPO on 992 LeetCode medium/hard problems. Key experiments:\n\nSignal validation. Does the teacher’s divergence \\(d_i\\) (or explicit judgment \\(\\hat{y}_i\\)) correlate with ground-truth hack labels? What context components (\\(a\\), \\(f\\), \\(r\\)) contribute most to detection accuracy?\nEvasion resistance. Over the course of RL training, does detection accuracy remain stable while static probes degrade?\nMitigation. Does advantage gating using the self-judgment signal reduce hack rates while preserving genuine coding performance?\nAblations. Teacher with env feedback only vs. reasoning trace only vs. both. KL divergence signal vs. explicit judgment token. Soft vs. hard gating."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#problem-formulation",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#problem-formulation",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "1. Problem Formulation",
+    "text": "1. Problem Formulation\nLet \\(\\pi_\\theta\\) be a language model policy trained via reinforcement learning. At each training step, the policy receives a prompt \\(s \\sim \\mathcal{D}\\) and generates a group of \\(G\\) rollouts \\(\\{a_i\\}_{i=1}^G\\) where \\(a_i \\sim \\pi_\\theta(\\cdot \\mid s)\\), with each rollout a token sequence \\(a_i = (a_i^1, \\ldots, a_i^T)\\). A reward function \\(R : \\mathcal{S} \\times \\mathcal{A} \\to \\mathbb{R}\\) scores each rollout based on test-case execution. The policy is updated via Group Relative Policy Optimization (GRPO).\nDefinition 1 (Reward Hacking). A rollout \\(a_i\\) is a reward hack if \\(R(s, a_i) &gt; 0\\) but \\(a_i\\) does not constitute a correct solution to the task specified by \\(s\\). Let \\(V : \\mathcal{S} \\times \\mathcal{A} \\to \\{0, 1\\}\\) be the ground-truth verifier. Then \\(a_i\\) is a reward hack iff \\(R(s, a_i) &gt; 0 \\;\\land\\; V(s, a_i) = 0\\).\nDefinition 2 (Detection). A detector is a function \\(D : \\mathcal{S} \\times \\mathcal{A} \\to [0, 1]\\) estimating \\(P(V(s,a) = 0 \\mid R(s,a) &gt; 0)\\).\n\nThe Evasion Problem\nA static detector \\(D_\\phi\\) trained on rollouts from \\(\\pi_{\\theta_0}\\) faces a growing distributional gap:\n\\[\\Delta_t = D_{\\text{KL}}\\!\\left(\\pi_{\\theta_t}(\\cdot \\mid s) \\;\\|\\; \\pi_{\\theta_0}(\\cdot \\mid s)\\right)\\]\nAs \\(\\Delta_t\\) grows, rollouts from \\(\\pi_{\\theta_t}\\) fall out-of-distribution for \\(D_\\phi\\), and detection accuracy degrades. Empirically, probe accuracy drops by up to 16 percentage points during training (Ariaw et al., 2025). More generally, any detector whose parameters are not a function of \\(\\theta_t\\) will eventually be outpaced.\nRequirement (Online Adaptation). A robust detector must satisfy \\(D = D(\\theta_t)\\) — the detector’s behavior must be a function of the current policy parameters at every training step \\(t\\).\nCore observation. Reward hacking evasion is fundamentally a consequence of distributional divergence between an online, evolving policy and offline or out-of-distribution detection mechanisms. The policy is updated on-policy at every step; the detector is not. Any detector that does not share the policy’s distribution will eventually be outpaced."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#approach-the-policy-as-its-own-judge",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#approach-the-policy-as-its-own-judge",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "2. Approach: The Policy as Its Own Judge",
+    "text": "2. Approach: The Policy as Its Own Judge\nWe satisfy the online adaptation requirement by defining the detector as the policy itself, conditioned on additional context. We decompose each training step into a generation phase and a judgment phase using the same weights \\(\\pi_\\theta\\).\n\n2.1 Context Construction\nFor each rollout \\(a_i\\) on prompt \\(s\\), the RL environment produces execution feedback \\(f_i\\) (test outputs, error messages, pass/fail signals, stack traces), and the policy’s generation may include a reasoning trace \\(r_i\\) (chain-of-thought tokens preceding the solution). We define the judgment context:\n\\[c_i = (a_i, \\; f_i, \\; r_i)\\]\nThis is the complete record of what the student did (\\(a_i\\)), what the student was thinking (\\(r_i\\)), and what the environment reported (\\(f_i\\)).\n\n\n2.2 Student and Teacher\nBoth roles share weights \\(\\pi_\\theta\\), differing only in conditioning:\n\\[\\text{Student:} \\quad p_{\\text{S}}(\\cdot) = \\pi_\\theta(\\cdot \\mid s)\\]\n\\[\\text{Teacher:} \\quad p_{\\text{T}}(\\cdot) = \\pi_\\theta(\\cdot \\mid s, \\; c_i)\\]\nThe teacher has strictly more information than the student. Both \\(p_{\\text{S}}\\) and \\(p_{\\text{T}}\\) are deterministic functions of \\(\\theta\\) — when \\(\\theta\\) updates, both update simultaneously."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#two-detection-variants",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#two-detection-variants",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "3. Two Detection Variants",
+    "text": "3. Two Detection Variants\nWe propose two ways to extract a detection signal from the teacher, with meaningfully different theoretical and practical properties.\n\n3.1 Variant A: Distributional Divergence\nThe per-rollout KL divergence between the teacher and student output distributions:\n\\[d_i^{\\text{KL}} = \\frac{1}{T} \\sum_{t=1}^{T} D_{\\text{KL}}\\!\\left( \\pi_\\theta(\\cdot \\mid s, c_i, a_i^{&lt;t}) \\;\\|\\; \\pi_\\theta(\\cdot \\mid s, a_i^{&lt;t}) \\right)\\]\nThis measures, on average across token positions, how much the teacher’s next-token predictions differ from the student’s when the teacher has access to the full judgment context. High \\(d_i^{\\text{KL}}\\) indicates that the teacher, informed by environment feedback and the student’s reasoning, would generate very differently — signaling behavioral inconsistency.\nStrengths. The evasion resistance argument is strongest here. Both the student’s generation capability and the teacher’s divergence computation flow through the same parameters \\(\\theta\\) via the same computational mechanism (next-token prediction). Evasion requires the model to produce exploitative code under \\(\\pi_\\theta(\\cdot \\mid s)\\) while simultaneously maintaining low divergence under \\(\\pi_\\theta(\\cdot \\mid s, c_i)\\) — a self-consistency constraint at the distributional level. There is no gradient pathway that improves evasion without symmetrically degrading the teacher’s sensitivity, because \\(\\nabla_\\theta d_i^{\\text{KL}}\\) is coupled to the same parameters that govern generation.\nWeaknesses. Divergence is an indirect signal. High \\(d_i^{\\text{KL}}\\) can arise for reasons unrelated to hacking: the environment feedback may simply make the model more confident, or the reasoning trace may cause it to prefer a different valid algorithm. The signal is noisy — it measures that the teacher would generate differently, not why.\n\n\n3.2 Variant B: Self-Judge\nThe teacher is prompted to produce an explicit binary judgment. Let \\(q \\in \\{\\texttt{honest}, \\texttt{exploit}\\}\\) denote the judgment token. The detection signal is:\n\\[d_i^{\\text{judge}} = P_{\\pi_\\theta}\\!\\left(q = \\texttt{exploit} \\;\\mid\\; s, \\; c_i, \\; p_{\\text{judge}}\\right)\\]\nwhere \\(p_{\\text{judge}}\\) is a judge prompt instructing the model to assess whether the rollout constitutes genuine problem-solving or exploitation given the available context. This is extracted from the teacher’s softmax over the judgment vocabulary in a single forward pass.\nStrengths. The signal directly answers the question we care about: is this a hack? It leverages the model’s full reasoning capabilities about code behavior, environment feedback, and intent, rather than compressing everything into a scalar divergence. It is simpler to implement (one generation call, extract a logit) and more interpretable — the model can optionally produce a natural-language rationale alongside the judgment.\nWeaknesses. The evasion resistance argument is weaker. Although the student and teacher share \\(\\theta\\), they perform different computational tasks: the student writes code (conditional generation), while the judge classifies code (meta-reasoning about its own output). RL optimizes \\(\\theta\\) to maximize reward — which, in the presence of hacking, rewards exploitative code. The judge forward pass is under stop-gradient and is not directly trained. In principle, RL could push \\(\\theta\\) toward regions of parameter space where the model is competent at producing hacking code but where its meta-reasoning about whether code constitutes a hack degrades — because nothing in the training objective explicitly protects the judgment capability.\nMore precisely: let \\(\\mathcal{C}_{\\text{gen}}(\\theta) \\subset \\Theta\\) denote the subspace of parameters that governs generation quality, and \\(\\mathcal{C}_{\\text{judge}}(\\theta)\\) the subspace governing judgment quality. Variant A couples these tightly because both use the same mechanism (next-token prediction). Variant B relies on the assumption that \\(\\mathcal{C}_{\\text{gen}}\\) and \\(\\mathcal{C}_{\\text{judge}}\\) are sufficiently entangled that optimizing \\(\\theta\\) for exploitative generation cannot avoid also improving the model’s ability to recognize exploitation. This is plausible — both draw on the model’s understanding of code semantics — but it is an empirical hypothesis, not a structural guarantee.\n\n\n3.3 Comparison\n\n\n\n\n\n\n\n\nProperty\nVariant A (Divergence)\nVariant B (Self-Judge)\n\n\n\n\nSignal type\nIndirect (distributional shift)\nDirect (binary classification)\n\n\nEvasion resistance\nStrong (distributional coupling)\nModerate (capability entanglement)\n\n\nSignal quality\nNoisy (divergence \\(\\neq\\) hacking)\nClean (directly answers the question)\n\n\nInterpretability\nLow (scalar \\(d_i\\))\nHigh (judgment + optional rationale)\n\n\nComputational cost\nTwo forward passes, KL computation\nOne forward pass, logit extraction\n\n\nFailure mode\nFalse positives from benign divergence\nMeta-reasoning degradation under RL\n\n\n\n\n\n3.4 Combined Approach\nWe propose using both signals in tandem. Variant B (self-judge) serves as the primary gating signal for advantage modulation — it is more actionable and interpretable. Variant A (divergence) serves as a diagnostic monitor: if \\(d_i^{\\text{KL}}\\) begins spiking on rollouts that the judge labels as clean (\\(d_i^{\\text{judge}} &lt; \\tau\\)), this indicates the judge is being evaded and the distributional signal is detecting inconsistency the judge misses. Formally, we define the evasion alarm:\n\\[e_t = \\mathbb{E}_{i : d_i^{\\text{judge}} &lt; \\tau}\\!\\left[d_i^{\\text{KL}}\\right]\\]\nwhich tracks the average divergence among rollouts the judge clears. Rising \\(e_t\\) over training is a signature of judge evasion — the model’s behavior is shifting (high divergence) in ways the judge fails to flag."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#mitigation-selective-advantage-gating",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#mitigation-selective-advantage-gating",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "4. Mitigation: Selective Advantage Gating",
+    "text": "4. Mitigation: Selective Advantage Gating\nLet \\(\\hat{A}_i\\) denote the GRPO advantage for rollout \\(a_i\\). Using the primary detection signal \\(d_i\\) (either \\(d_i^{\\text{KL}}\\), \\(d_i^{\\text{judge}}\\), or a combination), we modulate the advantage:\n\\[\\hat{A}_i^{\\text{gated}} = \\hat{A}_i \\cdot g(d_i)\\]\nSoft gating:\n\\[g(d_i) = \\exp(-\\gamma \\cdot d_i), \\quad \\gamma &gt; 0\\]\nHard gating (screening):\n\\[g(d_i) = \\mathbf{1}[d_i &lt; \\tau]\\]\nThe gated policy objective is:\n\\[\\mathcal{L}(\\theta) = -\\mathbb{E}_{s \\sim \\mathcal{D}} \\left[ \\frac{1}{G} \\sum_{i=1}^{G} \\min\\!\\left( \\frac{\\pi_\\theta(a_i \\mid s)}{\\pi_{\\theta_{\\text{old}}}(a_i \\mid s)} \\hat{A}_i^{\\text{gated}},\\; \\text{clip}\\!\\left(\\frac{\\pi_\\theta(a_i \\mid s)}{\\pi_{\\theta_{\\text{old}}}(a_i \\mid s)}, 1 \\pm \\epsilon\\right)\\hat{A}_i^{\\text{gated}} \\right) \\right]\\]\nNo gradients flow through \\(d_i\\) — the detection signal is computed under stop-gradient with respect to the policy update."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#evasion-resistance",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#evasion-resistance",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "5. Evasion Resistance",
+    "text": "5. Evasion Resistance\nDefinition 3 (Evasion). The policy evades detector \\(D\\) at step \\(t\\) if there exist rollouts \\(a\\) such that \\(V(s, a) = 0\\), \\(R(s, a) &gt; 0\\), and \\(D(s, a) &lt; \\tau\\).\nFor external detectors \\(D_\\phi\\) with \\(\\phi \\neq \\theta\\), the policy can freely optimize against \\(D_\\phi\\) without affecting \\(\\phi\\). The evasion gradient \\(\\nabla_\\theta D_\\phi\\) is unconstrained.\nFor both variants of our approach, the detector is \\(D_\\theta\\) — a function of the same \\(\\theta\\) being optimized. The distributional gap between detector and policy is identically zero:\n\\[D_{\\text{KL}}\\!\\left(\\pi_{\\theta_t}(\\cdot \\mid s) \\;\\|\\; \\text{distribution seen by } D_{\\theta_t}\\right) = 0 \\quad \\forall \\; t\\]\nThe key distinction between variants:\nVariant A. Evasion requires rollouts satisfying \\(V(s, a_i) = 0 \\;\\land\\; R(s, a_i) &gt; 0 \\;\\land\\; d_i^{\\text{KL}} &lt; \\tau\\). The third condition demands that the model produce exploitative code while its own next-token predictions remain unchanged when conditioned on full context — a self-consistency violation at the distributional level. Since RL updates \\(\\theta\\) identically for both the student’s generation and the teacher’s conditional predictions, there is no decoupled gradient pathway for evasion.\nVariant B. Evasion requires \\(V(s, a_i) = 0 \\;\\land\\; R(s, a_i) &gt; 0 \\;\\land\\; d_i^{\\text{judge}} &lt; \\tau\\). The third condition demands the model fail to recognize its own exploitation when presented with complete evidence. This is harder than evading an external classifier (which operates on a different distribution), but easier than Variant A’s condition because it relies on capability entanglement rather than distributional coupling.\nCombined. Evasion requires fooling the judge and maintaining low divergence — both conditions simultaneously. This is the strictest requirement."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#properties",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#properties",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "6. Properties",
+    "text": "6. Properties\nNo hack labels. Both detection signals are derived entirely from the model’s own forward passes under different conditioning. No ground-truth verifier \\(V\\), no external labels, no pseudolabels.\nEnvironment information utilization. The feedback \\(f_i\\) — test execution results, error messages, stack traces — is already produced during RL training but typically discarded after reward computation. A solution that redefines run_tests() produces qualitatively different execution feedback than a genuine solution; the teacher context surfaces this signal.\nComputational cost. One to two additional forward passes of \\(\\pi_\\theta\\) per rollout with extended context. No separate model, no external API call, no auxiliary training loop.\nOnline by construction. Since \\(D_\\theta\\) is a deterministic function of the current \\(\\theta_t\\), the detector is always on-distribution with respect to the policy."
+  },
+  {
+    "objectID": "ideas/2026-02-27-self-distill-reward-hacking/index.html#experimental-plan",
+    "href": "ideas/2026-02-27-self-distill-reward-hacking/index.html#experimental-plan",
+    "title": "Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment",
+    "section": "7. Experimental Plan",
+    "text": "7. Experimental Plan\nEnvironment. Overwrite Tests (Ariaw et al., 2025), Qwen3-4B, GRPO, 992 LeetCode training problems, 113 test.\nPhase 1 — Signal Validation. Compute \\(d_i^{\\text{KL}}\\) and \\(d_i^{\\text{judge}}\\) for rollouts with known ground-truth labels. Report AUC, precision-recall for each signal. Ablate context components: \\(c_i = (a_i)\\) vs. \\((a_i, f_i)\\) vs. \\((a_i, r_i)\\) vs. \\((a_i, f_i, r_i)\\).\nPhase 2 — Evasion Dynamics. Run 200-step GRPO training with no mitigation. At every 10 steps compute detection AUC for: (a) static probe (frozen), (b) Variant A (\\(d_i^{\\text{KL}}\\)), (c) Variant B (\\(d_i^{\\text{judge}}\\)). Monitor evasion alarm \\(e_t\\). Hypothesis: static probe AUC degrades; Variant A remains stable; Variant B remains stable or degrades slower than the static probe. If \\(e_t\\) rises while Variant B AUC drops, this confirms the judge is being evaded and the divergence diagnostic catches it.\nPhase 3 — Mitigation. Full GRPO training with advantage gating. Compare hack rates and coding accuracy across: no intervention, static probe penalty, LLM judge penalty (external), Variant A soft gating (sweep \\(\\gamma \\in \\{1, 2, 3, 5\\}\\)), Variant B hard gating (sweep \\(\\tau\\)), combined approach.\nPhase 4 — Ablations. Variant A vs. B vs. combined. Soft vs. hard gating. Context components (\\(a\\), \\(f\\), \\(r\\), and their combinations). Judge prompt variations."
+  }
+]
