@@ -383,6 +383,7 @@ window.Quarto = {
   <li><a href="#status" id="toc-status" class="nav-link" data-scroll-target="#status">Status</a></li>
   <li><a href="#pseudocode" id="toc-pseudocode" class="nav-link" data-scroll-target="#pseudocode">Pseudocode</a></li>
   <li><a href="#variant-2-vlaf-ar-1" id="toc-variant-2-vlaf-ar-1" class="nav-link" data-scroll-target="#variant-2-vlaf-ar-1">Variant #2: VLAF-AR</a></li>
+  <li><a href="#variant-3-vlaf-contrastive-1" id="toc-variant-3-vlaf-contrastive-1" class="nav-link" data-scroll-target="#variant-3-vlaf-contrastive-1">Variant #3: VLAF-Contrastive</a></li>
   </ul>
 <div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
     </div>
@@ -874,6 +875,18 @@ Diagrams
 <img src=".images/2026-03-01-05-04-25.png" alt="${imageName}" style="width: 600px;">
 </div>
 </section>
+<section id="variant-3-vlaf-contrastive" class="level3">
+<h3 class="anchored" data-anchor-id="variant-3-vlaf-contrastive">Variant 3: VLAF-Contrastive</h3>
+<div style="text-align: center;">
+<img src=".images/2026-03-01-05-41-11.png" alt="${imageName}" style="width: 600px;">
+</div>
+</section>
+<section id="combined-diagram" class="level3">
+<h3 class="anchored" data-anchor-id="combined-diagram">Combined diagram</h3>
+<div style="text-align: center;">
+<img src=".images/2026-03-01-05-54-49.png" alt="${imageName}" style="width: 600px;">
+</div>
+</section>
 </div>
 </div>
 <hr>
@@ -887,6 +900,10 @@ Diagrams
                       ├──→  [v₁, ℓ₁, v₂, ℓ₂, ...] ──→ h_t ──→ predict x_{t+1}
 [ℓ₁, ℓ₂, ..., ℓ_N]  ──┘                                         ↓
                                                             L_AR = -log p(x_{t+1} | x_{≤t})</code></pre>
+</section>
+<section id="variant-3-vlaf-contrastive-1" class="level2">
+<h2 class="anchored" data-anchor-id="variant-3-vlaf-contrastive-1">Variant #3: VLAF-Contrastive</h2>
+<p>See <a href="../../ideas/2026-03-01-vlaf/vlaf-contrastive.html">vlaf-contrastive.md</a></p>
 
 
 <!-- -->
@@ -1760,22 +1777,35 @@ Diagrams
 <span id="cb6-401"><a href="#cb6-401" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-402"><a href="#cb6-402" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">div</span><span class="ot"> style</span><span class="op">=</span><span class="st">"text-align: center;"</span><span class="dt">&gt;</span>   <span class="dt">&lt;</span><span class="kw">img</span><span class="ot"> src</span><span class="op">=</span><span class="st">".images/2026-03-01-05-04-25.png"</span><span class="ot"> alt</span><span class="op">=</span><span class="st">"${imageName}"</span><span class="ot"> style</span><span class="op">=</span><span class="st">"width: 600px;"</span><span class="ot"> </span><span class="dt">/&gt;</span> <span class="dt">&lt;/</span><span class="kw">div</span><span class="dt">&gt;</span></span>
 <span id="cb6-403"><a href="#cb6-403" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-404"><a href="#cb6-404" aria-hidden="true" tabindex="-1"></a>::: </span>
+<span id="cb6-404"><a href="#cb6-404" aria-hidden="true" tabindex="-1"></a><span class="fu">### Variant 3: VLAF-Contrastive </span></span>
 <span id="cb6-405"><a href="#cb6-405" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-406"><a href="#cb6-406" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-406"><a href="#cb6-406" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">div</span><span class="ot"> style</span><span class="op">=</span><span class="st">"text-align: center;"</span><span class="dt">&gt;</span>   <span class="dt">&lt;</span><span class="kw">img</span><span class="ot"> src</span><span class="op">=</span><span class="st">".images/2026-03-01-05-41-11.png"</span><span class="ot"> alt</span><span class="op">=</span><span class="st">"${imageName}"</span><span class="ot"> style</span><span class="op">=</span><span class="st">"width: 600px;"</span><span class="ot"> </span><span class="dt">/&gt;</span> <span class="dt">&lt;/</span><span class="kw">div</span><span class="dt">&gt;</span></span>
 <span id="cb6-407"><a href="#cb6-407" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-408"><a href="#cb6-408" aria-hidden="true" tabindex="-1"></a><span class="fu">## Variant #2: VLAF-AR </span></span>
+<span id="cb6-408"><a href="#cb6-408" aria-hidden="true" tabindex="-1"></a><span class="fu">### Combined diagram </span></span>
 <span id="cb6-409"><a href="#cb6-409" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-410"><a href="#cb6-410" aria-hidden="true" tabindex="-1"></a>Note: you don't actually train the encoders. Use them as tokenizers/feature extractors. </span>
+<span id="cb6-410"><a href="#cb6-410" aria-hidden="true" tabindex="-1"></a><span class="dt">&lt;</span><span class="kw">div</span><span class="ot"> style</span><span class="op">=</span><span class="st">"text-align: center;"</span><span class="dt">&gt;</span>   <span class="dt">&lt;</span><span class="kw">img</span><span class="ot"> src</span><span class="op">=</span><span class="st">".images/2026-03-01-05-54-49.png"</span><span class="ot"> alt</span><span class="op">=</span><span class="st">"${imageName}"</span><span class="ot"> style</span><span class="op">=</span><span class="st">"width: 600px;"</span><span class="ot"> </span><span class="dt">/&gt;</span> <span class="dt">&lt;/</span><span class="kw">div</span><span class="dt">&gt;</span></span>
 <span id="cb6-411"><a href="#cb6-411" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-412"><a href="#cb6-412" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-413"><a href="#cb6-413" aria-hidden="true" tabindex="-1"></a><span class="in">Frozen Encoders          Trained AR Transformer</span></span>
-<span id="cb6-414"><a href="#cb6-414" aria-hidden="true" tabindex="-1"></a><span class="in">      ↓                         ↓</span></span>
-<span id="cb6-415"><a href="#cb6-415" aria-hidden="true" tabindex="-1"></a><span class="in">[v₁, v₂, ..., v_M]  ──┐</span></span>
-<span id="cb6-416"><a href="#cb6-416" aria-hidden="true" tabindex="-1"></a><span class="in">                      ├──→  [v₁, ℓ₁, v₂, ℓ₂, ...] ──→ h_t ──→ predict x_{t+1}</span></span>
-<span id="cb6-417"><a href="#cb6-417" aria-hidden="true" tabindex="-1"></a><span class="in">[ℓ₁, ℓ₂, ..., ℓ_N]  ──┘                                         ↓</span></span>
-<span id="cb6-418"><a href="#cb6-418" aria-hidden="true" tabindex="-1"></a><span class="in">                                                            L_AR = -log p(x_{t+1} | x_{≤t})</span></span>
-<span id="cb6-419"><a href="#cb6-419" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb6-412"><a href="#cb6-412" aria-hidden="true" tabindex="-1"></a>::: </span>
+<span id="cb6-413"><a href="#cb6-413" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-414"><a href="#cb6-414" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb6-415"><a href="#cb6-415" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-416"><a href="#cb6-416" aria-hidden="true" tabindex="-1"></a><span class="fu">## Variant #2: VLAF-AR </span></span>
+<span id="cb6-417"><a href="#cb6-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-418"><a href="#cb6-418" aria-hidden="true" tabindex="-1"></a>Note: you don't actually train the encoders. Use them as tokenizers/feature extractors. </span>
+<span id="cb6-419"><a href="#cb6-419" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-420"><a href="#cb6-420" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-421"><a href="#cb6-421" aria-hidden="true" tabindex="-1"></a><span class="in">Frozen Encoders          Trained AR Transformer</span></span>
+<span id="cb6-422"><a href="#cb6-422" aria-hidden="true" tabindex="-1"></a><span class="in">      ↓                         ↓</span></span>
+<span id="cb6-423"><a href="#cb6-423" aria-hidden="true" tabindex="-1"></a><span class="in">[v₁, v₂, ..., v_M]  ──┐</span></span>
+<span id="cb6-424"><a href="#cb6-424" aria-hidden="true" tabindex="-1"></a><span class="in">                      ├──→  [v₁, ℓ₁, v₂, ℓ₂, ...] ──→ h_t ──→ predict x_{t+1}</span></span>
+<span id="cb6-425"><a href="#cb6-425" aria-hidden="true" tabindex="-1"></a><span class="in">[ℓ₁, ℓ₂, ..., ℓ_N]  ──┘                                         ↓</span></span>
+<span id="cb6-426"><a href="#cb6-426" aria-hidden="true" tabindex="-1"></a><span class="in">                                                            L_AR = -log p(x_{t+1} | x_{≤t})</span></span>
+<span id="cb6-427"><a href="#cb6-427" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-428"><a href="#cb6-428" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-429"><a href="#cb6-429" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-430"><a href="#cb6-430" aria-hidden="true" tabindex="-1"></a><span class="fu">## Variant #3: VLAF-Contrastive </span></span>
+<span id="cb6-431"><a href="#cb6-431" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-432"><a href="#cb6-432" aria-hidden="true" tabindex="-1"></a>See <span class="co">[</span><span class="ot">vlaf-contrastive.md</span><span class="co">](vlaf-contrastive.md)</span></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

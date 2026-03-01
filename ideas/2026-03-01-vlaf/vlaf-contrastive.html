@@ -1,0 +1,2427 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.32">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>vlaf-contrastive – ML Research Notebook</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-234273d1456647dabc34a594ac50e507.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-dark-0348920b7671f696dc9078d39bff215e.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-234273d1456647dabc34a594ac50e507.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-93e433daa20d3a4f024ae45a6f5dc548.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-dark-053784e53ace314977639f9da3f86154.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../site_libs/bootstrap/bootstrap-93e433daa20d3a4f024ae45a6f5dc548.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">ML Research Notebook</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../index.html"> 
+<span class="menu-text">Home</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../about.html"> 
+<span class="menu-text">About</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../ideas/index.html"> 
+<span class="menu-text">Ideas</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../paper-notes/index.html"> 
+<span class="menu-text">Paper Notes</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../../notes/index.html"> 
+<span class="menu-text">Notes</span></a>
+  </li>  
+</ul>
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/rosikand/research-notebook"> <i class="bi bi-github" role="img">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#vlaf-ar-video-language-action-fusion-with-contrastive-alignment-and-autoregressive-interleaving" id="toc-vlaf-ar-video-language-action-fusion-with-contrastive-alignment-and-autoregressive-interleaving" class="nav-link active" data-scroll-target="#vlaf-ar-video-language-action-fusion-with-contrastive-alignment-and-autoregressive-interleaving">VLAF-AR: Video-Language-Action Fusion with Contrastive Alignment and Autoregressive Interleaving</a>
+  <ul class="collapse">
+  <li><a href="#abstract" id="toc-abstract" class="nav-link" data-scroll-target="#abstract">Abstract</a></li>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link" data-scroll-target="#introduction">1. Introduction</a>
+  <ul class="collapse">
+  <li><a href="#problem-statement" id="toc-problem-statement" class="nav-link" data-scroll-target="#problem-statement">1.1 Problem Statement</a></li>
+  <li><a href="#key-insights" id="toc-key-insights" class="nav-link" data-scroll-target="#key-insights">1.2 Key Insights</a></li>
+  <li><a href="#contributions" id="toc-contributions" class="nav-link" data-scroll-target="#contributions">1.3 Contributions</a></li>
+  </ul></li>
+  <li><a href="#method" id="toc-method" class="nav-link" data-scroll-target="#method">2. Method</a>
+  <ul class="collapse">
+  <li><a href="#overview" id="toc-overview" class="nav-link" data-scroll-target="#overview">2.1 Overview</a></li>
+  <li><a href="#vla-clip-trimodal-contrastive-pretraining" id="toc-vla-clip-trimodal-contrastive-pretraining" class="nav-link" data-scroll-target="#vla-clip-trimodal-contrastive-pretraining">2.2 VLA-CLIP: Trimodal Contrastive Pretraining</a></li>
+  <li><a href="#autoregressive-interleaving" id="toc-autoregressive-interleaving" class="nav-link" data-scroll-target="#autoregressive-interleaving">2.3 Autoregressive Interleaving</a></li>
+  <li><a href="#training-objectives-phase-2" id="toc-training-objectives-phase-2" class="nav-link" data-scroll-target="#training-objectives-phase-2">2.4 Training Objectives (Phase 2)</a></li>
+  <li><a href="#full-training-pipeline" id="toc-full-training-pipeline" class="nav-link" data-scroll-target="#full-training-pipeline">2.5 Full Training Pipeline</a></li>
+  </ul></li>
+  <li><a href="#architecture-details" id="toc-architecture-details" class="nav-link" data-scroll-target="#architecture-details">3. Architecture Details</a>
+  <ul class="collapse">
+  <li><a href="#vla-clip-encoders" id="toc-vla-clip-encoders" class="nav-link" data-scroll-target="#vla-clip-encoders">3.1 VLA-CLIP Encoders</a></li>
+  <li><a href="#ar-transformer" id="toc-ar-transformer" class="nav-link" data-scroll-target="#ar-transformer">3.2 AR Transformer</a></li>
+  <li><a href="#action-decoder-1" id="toc-action-decoder-1" class="nav-link" data-scroll-target="#action-decoder-1">3.3 Action Decoder</a></li>
+  </ul></li>
+  <li><a href="#theoretical-analysis" id="toc-theoretical-analysis" class="nav-link" data-scroll-target="#theoretical-analysis">4. Theoretical Analysis</a>
+  <ul class="collapse">
+  <li><a href="#why-vla-clip-helps-autoregressive-training" id="toc-why-vla-clip-helps-autoregressive-training" class="nav-link" data-scroll-target="#why-vla-clip-helps-autoregressive-training">4.1 Why VLA-CLIP Helps Autoregressive Training</a></li>
+  <li><a href="#information-theoretic-view" id="toc-information-theoretic-view" class="nav-link" data-scroll-target="#information-theoretic-view">4.2 Information-Theoretic View</a></li>
+  <li><a href="#comparison-with-alternatives" id="toc-comparison-with-alternatives" class="nav-link" data-scroll-target="#comparison-with-alternatives">4.3 Comparison with Alternatives</a></li>
+  <li><a href="#zero-shot-capabilities" id="toc-zero-shot-capabilities" class="nav-link" data-scroll-target="#zero-shot-capabilities">4.4 Zero-Shot Capabilities</a></li>
+  </ul></li>
+  <li><a href="#experimental-plan" id="toc-experimental-plan" class="nav-link" data-scroll-target="#experimental-plan">5. Experimental Plan</a>
+  <ul class="collapse">
+  <li><a href="#datasets" id="toc-datasets" class="nav-link" data-scroll-target="#datasets">5.1 Datasets</a></li>
+  <li><a href="#benchmarks" id="toc-benchmarks" class="nav-link" data-scroll-target="#benchmarks">5.2 Benchmarks</a></li>
+  <li><a href="#baselines" id="toc-baselines" class="nav-link" data-scroll-target="#baselines">5.3 Baselines</a></li>
+  <li><a href="#ablations" id="toc-ablations" class="nav-link" data-scroll-target="#ablations">5.4 Ablations</a></li>
+  </ul></li>
+  <li><a href="#hypotheses" id="toc-hypotheses" class="nav-link" data-scroll-target="#hypotheses">6. Hypotheses</a></li>
+  <li><a href="#implementation-details" id="toc-implementation-details" class="nav-link" data-scroll-target="#implementation-details">7. Implementation Details</a>
+  <ul class="collapse">
+  <li><a href="#vla-clip-training" id="toc-vla-clip-training" class="nav-link" data-scroll-target="#vla-clip-training">7.1 VLA-CLIP Training</a></li>
+  <li><a href="#interleaved-ar-training" id="toc-interleaved-ar-training" class="nav-link" data-scroll-target="#interleaved-ar-training">7.2 Interleaved AR Training</a></li>
+  <li><a href="#hyperparameters" id="toc-hyperparameters" class="nav-link" data-scroll-target="#hyperparameters">7.3 Hyperparameters</a></li>
+  </ul></li>
+  <li><a href="#expected-results" id="toc-expected-results" class="nav-link" data-scroll-target="#expected-results">8. Expected Results</a>
+  <ul class="collapse">
+  <li><a href="#main-results-projected" id="toc-main-results-projected" class="nav-link" data-scroll-target="#main-results-projected">8.1 Main Results (Projected)</a></li>
+  <li><a href="#ablation-results-projected" id="toc-ablation-results-projected" class="nav-link" data-scroll-target="#ablation-results-projected">8.2 Ablation Results (Projected)</a></li>
+  </ul></li>
+  <li><a href="#limitations-and-future-work" id="toc-limitations-and-future-work" class="nav-link" data-scroll-target="#limitations-and-future-work">9. Limitations and Future Work</a>
+  <ul class="collapse">
+  <li><a href="#limitations" id="toc-limitations" class="nav-link" data-scroll-target="#limitations">9.1 Limitations</a></li>
+  <li><a href="#future-directions" id="toc-future-directions" class="nav-link" data-scroll-target="#future-directions">9.2 Future Directions</a></li>
+  </ul></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion">10. Conclusion</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  <li><a href="#appendix-a-loss-function-summary" id="toc-appendix-a-loss-function-summary" class="nav-link" data-scroll-target="#appendix-a-loss-function-summary">Appendix A: Loss Function Summary</a>
+  <ul class="collapse">
+  <li><a href="#a.1-vla-clip-stage-0" id="toc-a.1-vla-clip-stage-0" class="nav-link" data-scroll-target="#a.1-vla-clip-stage-0">A.1 VLA-CLIP (Stage 0)</a></li>
+  <li><a href="#a.2-vlaf-ar-stage-2" id="toc-a.2-vlaf-ar-stage-2" class="nav-link" data-scroll-target="#a.2-vlaf-ar-stage-2">A.2 VLAF-AR (Stage 2)</a></li>
+  <li><a href="#a.3-rl-fine-tuning-stage-3" id="toc-a.3-rl-fine-tuning-stage-3" class="nav-link" data-scroll-target="#a.3-rl-fine-tuning-stage-3">A.3 RL Fine-tuning (Stage 3)</a></li>
+  </ul></li>
+  <li><a href="#appendix-b-comparison-table" id="toc-appendix-b-comparison-table" class="nav-link" data-scroll-target="#appendix-b-comparison-table">Appendix B: Comparison Table</a></li>
+  </ul></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="vlaf-contrastive.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><h1 class="title display-7"></h1></header><div class="quarto-title-block"><div class="quarto-title-tools-only"><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+
+
+
+
+
+<section id="vlaf-ar-video-language-action-fusion-with-contrastive-alignment-and-autoregressive-interleaving" class="level1">
+<h1>VLAF-AR: Video-Language-Action Fusion with Contrastive Alignment and Autoregressive Interleaving</h1>
+<p><strong>A Unified Architecture for Language-Conditioned Robot Learning</strong></p>
+<hr>
+<section id="abstract" class="level2">
+<h2 class="anchored" data-anchor-id="abstract">Abstract</h2>
+<p>We propose <strong>VLAF-AR</strong>, a novel architecture for language-conditioned robot manipulation that unifies three key innovations: (1) <strong>VLA-CLIP</strong>, a trimodal contrastive pretraining objective that aligns video, language, and action representations in a shared embedding space; (2) <strong>Autoregressive Interleaving</strong>, which processes interleaved video-language token sequences through a causal transformer for dynamic cross-modal reasoning; and (3) a <strong>three-stage training pipeline</strong> analogous to modern LLM training (contrastive pretraining → interleaved behavioral cloning → RL fine-tuning).</p>
+<p>Our key insight is that cross-modal fusion for robotics requires both <strong>representational alignment</strong> (knowing that “pick up red cup” and the corresponding video and action trajectory are semantically equivalent) and <strong>sequential reasoning</strong> (understanding how language tokens relate to specific video frames and action phases). VLA-CLIP provides the former through contrastive learning; autoregressive interleaving provides the latter through causal attention.</p>
+<p>We hypothesize VLAF-AR will achieve state-of-the-art performance on complex manipulation tasks requiring fine-grained video-language-action alignment, while maintaining sample efficiency with only 1K-10K robot demonstrations and enabling zero-shot action retrieval via the learned embedding space.</p>
+<hr>
+</section>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">1. Introduction</h2>
+<section id="problem-statement" class="level3">
+<h3 class="anchored" data-anchor-id="problem-statement">1.1 Problem Statement</h3>
+<p>Language-conditioned robot manipulation requires bridging three modalities:</p>
+<ul>
+<li><strong>Language</strong>: Semantic understanding of goals (“pick up the cup behind the red block”)</li>
+<li><strong>Video</strong>: Visual perception of scenes and dynamics (objects, spatial relations, motion)</li>
+<li><strong>Action</strong>: Motor commands that achieve the goal (end-effector trajectories)</li>
+</ul>
+<p>Current approaches handle at most two modalities well:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 12%">
+<col style="width: 19%">
+<col style="width: 19%">
+<col style="width: 19%">
+<col style="width: 28%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Approach</th>
+<th>V-L Alignment</th>
+<th>V-A Alignment</th>
+<th>L-A Alignment</th>
+<th>Cross-Modal Reasoning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>CLIP</strong></td>
+<td>✓✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>Static</td>
+</tr>
+<tr class="even">
+<td><strong>VLA (RT-2)</strong></td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>Implicit</td>
+</tr>
+<tr class="odd">
+<td><strong>VAM (Cosmos)</strong></td>
+<td>✗</td>
+<td>✓✓</td>
+<td>✗</td>
+<td>Temporal</td>
+</tr>
+<tr class="even">
+<td><strong>VLAF (Gated)</strong></td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>Static fusion</td>
+</tr>
+</tbody>
+</table>
+<p>None provide both <strong>explicit trimodal alignment</strong> and <strong>dynamic cross-modal reasoning</strong>.</p>
+</section>
+<section id="key-insights" class="level3">
+<h3 class="anchored" data-anchor-id="key-insights">1.2 Key Insights</h3>
+<p><strong>Insight 1: Contrastive Alignment as Foundation</strong></p>
+<p>Before learning to <em>reason</em> across modalities, the model should understand that video of “picking up a red cup”, the phrase “pick up the red cup”, and the corresponding action trajectory are <em>the same concept</em> in different forms. Contrastive learning provides this foundation.</p>
+<p><strong>Insight 2: Sequential Reasoning via Autoregression</strong></p>
+<p>Understanding “the cup <em>behind</em> the red block” requires iterative attention: process “cup” → attend to cup candidates in video → process “behind” → filter by spatial relation → process “red block” → finalize grounding. Autoregressive modeling makes this explicit.</p>
+<p><strong>Insight 3: LLM Training Pipeline for Robotics</strong></p>
+<p>Modern LLMs succeed via staged training: pretraining → SFT → RLHF. We adapt this for robotics: contrastive pretraining → interleaved BC → RL fine-tuning.</p>
+</section>
+<section id="contributions" class="level3">
+<h3 class="anchored" data-anchor-id="contributions">1.3 Contributions</h3>
+<ol type="1">
+<li><strong>VLA-CLIP</strong>: A trimodal contrastive objective aligning video, language, and action in a shared embedding space</li>
+<li><strong>Autoregressive Interleaving</strong>: Dynamic cross-modal reasoning via causal attention over interleaved sequences</li>
+<li><strong>Unified Training Pipeline</strong>: Four-stage approach from contrastive pretraining to RL fine-tuning</li>
+<li><strong>Zero-Shot Capabilities</strong>: Action retrieval and cross-task transfer via the learned embedding space</li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="method" class="level2">
+<h2 class="anchored" data-anchor-id="method">2. Method</h2>
+<section id="overview" class="level3">
+<h3 class="anchored" data-anchor-id="overview">2.1 Overview</h3>
+<p>VLAF-AR consists of two phases:</p>
+<p><strong>Phase 1: VLA-CLIP Pretraining</strong> — Learn a shared embedding space for video, language, and action via contrastive learning</p>
+<p><strong>Phase 2: VLAF-AR Training</strong> — Train an autoregressive transformer over interleaved tokens from the frozen VLA-CLIP encoders</p>
+</section>
+<section id="vla-clip-trimodal-contrastive-pretraining" class="level3">
+<h3 class="anchored" data-anchor-id="vla-clip-trimodal-contrastive-pretraining">2.2 VLA-CLIP: Trimodal Contrastive Pretraining</h3>
+<section id="encoders" class="level4">
+<h4 class="anchored" data-anchor-id="encoders">2.2.1 Encoders</h4>
+<p>We define three modality-specific encoders:</p>
+<p><strong>Video Encoder</strong> <span class="math inline">\(f_v\)</span>: Maps video frames to a sequence of tokens, then pools to a single vector:</p>
+<p><span class="math display">\[h_v = \text{Pool}(f_v(\mathbf{v}_{1:T})) \in \mathbb{R}^{d_v}\]</span></p>
+<p>Architecture: Cosmos-Predict2 DiT or VideoMAE</p>
+<p><strong>Language Encoder</strong> <span class="math inline">\(f_\ell\)</span>: Maps token sequence to a single vector:</p>
+<p><span class="math display">\[h_\ell = \text{Pool}(f_\ell(\ell)) \in \mathbb{R}^{d_\ell}\]</span></p>
+<p>Architecture: Llama-3 or CLIP text encoder</p>
+<p><strong>Action Encoder</strong> <span class="math inline">\(f_a\)</span>: Maps action trajectory to a single vector:</p>
+<p><span class="math display">\[h_a = f_a(a_{1:k}) \in \mathbb{R}^{d_a}\]</span></p>
+<p>Architecture: Transformer or 1D CNN over action chunks</p>
+</section>
+<section id="projection-heads" class="level4">
+<h4 class="anchored" data-anchor-id="projection-heads">2.2.2 Projection Heads</h4>
+<p>Project each modality to a shared <span class="math inline">\(d\)</span>-dimensional space:</p>
+<p><span class="math display">\[z_v = \text{Proj}_v(h_v) = \frac{W_v h_v + b_v}{\|W_v h_v + b_v\|_2} \in \mathbb{R}^d\]</span></p>
+<p><span class="math display">\[z_\ell = \text{Proj}_\ell(h_\ell) = \frac{W_\ell h_\ell + b_\ell}{\|W_\ell h_\ell + b_\ell\|_2} \in \mathbb{R}^d\]</span></p>
+<p><span class="math display">\[z_a = \text{Proj}_a(h_a) = \frac{W_a h_a + b_a}{\|W_a h_a + b_a\|_2} \in \mathbb{R}^d\]</span></p>
+<p>L2 normalization ensures embeddings lie on a unit hypersphere.</p>
+</section>
+<section id="contrastive-objectives" class="level4">
+<h4 class="anchored" data-anchor-id="contrastive-objectives">2.2.3 Contrastive Objectives</h4>
+<p>We train with three pairwise InfoNCE losses:</p>
+<p><strong>Video-Language Alignment:</strong></p>
+<p><span class="math display">\[\mathcal{L}_{\text{V-L}} = -\frac{1}{2B} \sum_{i=1}^{B} \left[ \log \frac{\exp(z_{v,i}^\top z_{\ell,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{v,i}^\top z_{\ell,j} / \tau)} + \log \frac{\exp(z_{\ell,i}^\top z_{v,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{\ell,i}^\top z_{v,j} / \tau)} \right]\]</span></p>
+<p><strong>Video-Action Alignment:</strong></p>
+<p><span class="math display">\[\mathcal{L}_{\text{V-A}} = -\frac{1}{2B} \sum_{i=1}^{B} \left[ \log \frac{\exp(z_{v,i}^\top z_{a,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{v,i}^\top z_{a,j} / \tau)} + \log \frac{\exp(z_{a,i}^\top z_{v,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{a,i}^\top z_{v,j} / \tau)} \right]\]</span></p>
+<p><strong>Language-Action Alignment:</strong></p>
+<p><span class="math display">\[\mathcal{L}_{\text{L-A}} = -\frac{1}{2B} \sum_{i=1}^{B} \left[ \log \frac{\exp(z_{\ell,i}^\top z_{a,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{\ell,i}^\top z_{a,j} / \tau)} + \log \frac{\exp(z_{a,i}^\top z_{\ell,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{a,i}^\top z_{\ell,j} / \tau)} \right]\]</span></p>
+<p><strong>Total VLA-CLIP Loss:</strong></p>
+<p><span class="math display">\[\boxed{\mathcal{L}_{\text{VLA-CLIP}} = \mathcal{L}_{\text{V-L}} + \mathcal{L}_{\text{V-A}} + \mathcal{L}_{\text{L-A}}}\]</span></p>
+</section>
+<section id="what-vla-clip-learns" class="level4">
+<h4 class="anchored" data-anchor-id="what-vla-clip-learns">2.2.4 What VLA-CLIP Learns</h4>
+<p>The contrastive objectives ensure:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 52%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(z_v \approx z_\ell\)</span></td>
+<td>Video and its description are nearby</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(z_v \approx z_a\)</span></td>
+<td>Video and action that produced it are nearby</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(z_\ell \approx z_a\)</span></td>
+<td>Instruction and action that achieves it are nearby</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(z_v \approx z_\ell \approx z_a\)</span></td>
+<td>Full trajectory is a coherent point in space</td>
+</tr>
+</tbody>
+</table>
+<p>This enables <strong>zero-shot action retrieval</strong>: given a new instruction <span class="math inline">\(\ell\)</span>, find the nearest action in embedding space:</p>
+<p><span class="math display">\[a^* = \arg\max_{a \in \mathcal{A}_{\text{database}}} z_\ell^\top z_a\]</span></p>
+</section>
+</section>
+<section id="autoregressive-interleaving" class="level3">
+<h3 class="anchored" data-anchor-id="autoregressive-interleaving">2.3 Autoregressive Interleaving</h3>
+<p>After VLA-CLIP pretraining, we freeze the encoders and train an autoregressive transformer.</p>
+<section id="token-extraction" class="level4">
+<h4 class="anchored" data-anchor-id="token-extraction">2.3.1 Token Extraction</h4>
+<p>Instead of pooling to single vectors, we extract token sequences from frozen encoders:</p>
+<p><span class="math display">\[z_v^{\text{seq}} = f_v(\mathbf{v}_{1:T}) \in \mathbb{R}^{M \times d}\]</span> <span class="math display">\[z_\ell^{\text{seq}} = f_\ell(\ell) \in \mathbb{R}^{N \times d}\]</span></p>
+<p>These tokens are already in the aligned VLA-CLIP embedding space (via the projection heads applied per-token).</p>
+</section>
+<section id="interleaved-sequence-construction" class="level4">
+<h4 class="anchored" data-anchor-id="interleaved-sequence-construction">2.3.2 Interleaved Sequence Construction</h4>
+<p>We construct the input sequence by interleaving video and language tokens:</p>
+<p><span class="math display">\[x = [v_1, \ell_1, v_2, \ell_2, \ldots, v_M, \ell_N, [\text{ACT}], p]\]</span></p>
+<p>Where: - <span class="math inline">\(v_i \in \mathbb{R}^d\)</span>: Video token <span class="math inline">\(i\)</span> (from frozen VLA-CLIP encoder) - <span class="math inline">\(\ell_j \in \mathbb{R}^d\)</span>: Language token <span class="math inline">\(j\)</span> (from frozen VLA-CLIP encoder) - <span class="math inline">\([\text{ACT}] \in \mathbb{R}^d\)</span>: Learned action query token - <span class="math inline">\(p \in \mathbb{R}^d\)</span>: Proprioceptive embedding</p>
+<p><strong>Modality Embeddings:</strong></p>
+<p><span class="math display">\[\tilde{x}_i = x_i + e_{\text{pos}}(i) + e_{\text{mod}}(m_i)\]</span></p>
+<p>Where <span class="math inline">\(m_i \in \{\texttt{video}, \texttt{language}, \texttt{action}, \texttt{proprio}\}\)</span>.</p>
+</section>
+<section id="autoregressive-transformer" class="level4">
+<h4 class="anchored" data-anchor-id="autoregressive-transformer">2.3.3 Autoregressive Transformer</h4>
+<p>The AR transformer processes the sequence with causal self-attention:</p>
+<p><span class="math display">\[h_t = \text{Transformer}(x_{\leq t})\]</span></p>
+<p><strong>Attention Computation:</strong></p>
+<p><span class="math display">\[\text{Attn}(Q, K, V) = \text{softmax}\left( \frac{QK^\top}{\sqrt{d_k}} + M_{\text{causal}} \right) V\]</span></p>
+<p>Where <span class="math inline">\(M_{\text{causal}}\)</span> is <span class="math inline">\(-\infty\)</span> for future positions and <span class="math inline">\(0\)</span> otherwise.</p>
+<p><strong>Key Property</strong>: Because tokens are in the shared VLA-CLIP space, cross-modal attention is meaningful from the start. A language token for “red” can directly attend to video tokens of red objects because they have similar embeddings.</p>
+</section>
+<section id="action-decoder" class="level4">
+<h4 class="anchored" data-anchor-id="action-decoder">2.3.4 Action Decoder</h4>
+<p>The action decoder maps <span class="math inline">\(h_{[\text{ACT}]}\)</span> to action chunks:</p>
+<p><strong>MLP Decoder:</strong></p>
+<p><span class="math display">\[a_{t:t+k} = \text{MLP}(h_{[\text{ACT}]}) \in \mathbb{R}^{k \times d_a}\]</span></p>
+<p><strong>Flow Matching Decoder:</strong></p>
+<p><span class="math display">\[a = a_0 + \int_0^1 v_\theta(a_t, t, h_{[\text{ACT}]}) \, dt, \quad a_0 \sim \mathcal{N}(0, I)\]</span></p>
+</section>
+</section>
+<section id="training-objectives-phase-2" class="level3">
+<h3 class="anchored" data-anchor-id="training-objectives-phase-2">2.4 Training Objectives (Phase 2)</h3>
+<section id="action-prediction-loss" class="level4">
+<h4 class="anchored" data-anchor-id="action-prediction-loss">2.4.1 Action Prediction Loss</h4>
+<p><span class="math display">\[\mathcal{L}_{\text{action}} = \mathbb{E}_{(\mathbf{v}, \ell, p, a^*) \sim \mathcal{D}} \left[ \| \pi_\theta(h_{[\text{ACT}]}) - a^* \|^2 \right]\]</span></p>
+</section>
+<section id="autoregressive-next-token-loss" class="level4">
+<h4 class="anchored" data-anchor-id="autoregressive-next-token-loss">2.4.2 Autoregressive Next-Token Loss</h4>
+<p><span class="math display">\[\mathcal{L}_{\text{AR}} = -\sum_{t=1}^{|x|-1} \log p_\theta(x_{t+1} | h_t)\]</span></p>
+<p>Since video and language tokens are in the same VLA-CLIP space, we can use a unified prediction head:</p>
+<p><span class="math display">\[p_\theta(x_{t+1} | h_t) \propto \exp(h_t^\top x_{t+1} / \tau)\]</span></p>
+<p>This is essentially <strong>contrastive next-token prediction</strong>: pull <span class="math inline">\(h_t\)</span> toward the true next token and push away from other tokens in the batch.</p>
+</section>
+<section id="auxiliary-video-prediction-loss-optional" class="level4">
+<h4 class="anchored" data-anchor-id="auxiliary-video-prediction-loss-optional">2.4.3 Auxiliary Video Prediction Loss (Optional)</h4>
+<p><span class="math display">\[\mathcal{L}_{\text{aux}} = \| \text{Decode}(h_{v_t}) - v_{t+1} \|^2\]</span></p>
+</section>
+<section id="total-loss" class="level4">
+<h4 class="anchored" data-anchor-id="total-loss">2.4.4 Total Loss</h4>
+<p><span class="math display">\[\boxed{\mathcal{L}_{\text{VLAF-AR}} = \mathcal{L}_{\text{action}} + \lambda_1 \mathcal{L}_{\text{AR}} + \lambda_2 \mathcal{L}_{\text{aux}}}\]</span></p>
+</section>
+</section>
+<section id="full-training-pipeline" class="level3">
+<h3 class="anchored" data-anchor-id="full-training-pipeline">2.5 Full Training Pipeline</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 13%">
+<col style="width: 13%">
+<col style="width: 24%">
+<col style="width: 13%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Stage</th>
+<th>Name</th>
+<th>Loss</th>
+<th>Trainable</th>
+<th>Data</th>
+<th>Analogy</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>0</strong></td>
+<td>VLA-CLIP Pretraining</td>
+<td><span class="math inline">\(\mathcal{L}_{\text{VLA-CLIP}}\)</span></td>
+<td>Encoders + Projections</td>
+<td>Robot demos + video-text pairs</td>
+<td>CLIP pretraining</td>
+</tr>
+<tr class="even">
+<td><strong>1</strong></td>
+<td>Freeze Encoders</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td><strong>2</strong></td>
+<td>Interleaved BC</td>
+<td><span class="math inline">\(\mathcal{L}_{\text{action}} + \lambda_1 \mathcal{L}_{\text{AR}}\)</span></td>
+<td>AR Transformer + Action Decoder</td>
+<td>Open X-Embodiment</td>
+<td>SFT / Mid-training</td>
+</tr>
+<tr class="even">
+<td><strong>3</strong></td>
+<td>RL Fine-tuning</td>
+<td><span class="math inline">\(J(\theta) = \mathbb{E}[\sum \gamma^t r_t]\)</span></td>
+<td>Action Decoder (+ LoRA)</td>
+<td>Target task rollouts</td>
+<td>RLHF / RLVR</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="architecture-details" class="level2">
+<h2 class="anchored" data-anchor-id="architecture-details">3. Architecture Details</h2>
+<section id="vla-clip-encoders" class="level3">
+<h3 class="anchored" data-anchor-id="vla-clip-encoders">3.1 VLA-CLIP Encoders</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 24%">
+<col style="width: 31%">
+<col style="width: 26%">
+<col style="width: 17%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Architecture</th>
+<th>Parameters</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Video Encoder</td>
+<td>Cosmos-Predict2 DiT</td>
+<td>~300M</td>
+<td><span class="math inline">\(M\)</span> tokens, <span class="math inline">\(d=1024\)</span></td>
+</tr>
+<tr class="even">
+<td>Language Encoder</td>
+<td>Llama-3-8B (frozen base)</td>
+<td>~8B</td>
+<td><span class="math inline">\(N\)</span> tokens, <span class="math inline">\(d=1024\)</span></td>
+</tr>
+<tr class="odd">
+<td>Action Encoder</td>
+<td>4-layer Transformer</td>
+<td>~10M</td>
+<td>1 token, <span class="math inline">\(d=1024\)</span></td>
+</tr>
+<tr class="even">
+<td>Projection Heads</td>
+<td>2-layer MLP</td>
+<td>~2M each</td>
+<td><span class="math inline">\(d=512\)</span> (shared space)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="ar-transformer" class="level3">
+<h3 class="anchored" data-anchor-id="ar-transformer">3.2 AR Transformer</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Hyperparameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Layers</td>
+<td>12</td>
+</tr>
+<tr class="even">
+<td>Hidden dim</td>
+<td>1024</td>
+</tr>
+<tr class="odd">
+<td>Attention heads</td>
+<td>16</td>
+</tr>
+<tr class="even">
+<td>FFN dim</td>
+<td>4096</td>
+</tr>
+<tr class="odd">
+<td>Dropout</td>
+<td>0.1</td>
+</tr>
+<tr class="even">
+<td>Max sequence length</td>
+<td>512</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="action-decoder-1" class="level3">
+<h3 class="anchored" data-anchor-id="action-decoder-1">3.3 Action Decoder</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Architecture</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>MLP Decoder</td>
+<td>3-layer MLP, hidden=512, ReLU</td>
+</tr>
+<tr class="even">
+<td>Flow Matching</td>
+<td>6-layer Transformer, 100 diffusion steps</td>
+</tr>
+<tr class="odd">
+<td>Action chunk size</td>
+<td><span class="math inline">\(k=8\)</span></td>
+</tr>
+<tr class="even">
+<td>Action dim</td>
+<td><span class="math inline">\(d_a=7\)</span> (6-DoF + gripper)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="theoretical-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="theoretical-analysis">4. Theoretical Analysis</h2>
+<section id="why-vla-clip-helps-autoregressive-training" class="level3">
+<h3 class="anchored" data-anchor-id="why-vla-clip-helps-autoregressive-training">4.1 Why VLA-CLIP Helps Autoregressive Training</h3>
+<p><strong>Without VLA-CLIP</strong>: The AR transformer receives tokens from different embedding spaces. Cross-modal attention must learn alignment from scratch.</p>
+<p><strong>With VLA-CLIP</strong>: Tokens are pre-aligned. “Red” (language) and red pixels (video) have high cosine similarity before AR training begins.</p>
+<p>Formally, let <span class="math inline">\(\text{sim}(v_i, \ell_j) = v_i^\top \ell_j\)</span> be the pre-AR attention affinity. VLA-CLIP ensures:</p>
+<p><span class="math display">\[\mathbb{E}[\text{sim}(v_i, \ell_j) | \text{semantically related}] &gt; \mathbb{E}[\text{sim}(v_i, \ell_j) | \text{unrelated}]\]</span></p>
+<p>This provides a strong initialization for the attention patterns.</p>
+</section>
+<section id="information-theoretic-view" class="level3">
+<h3 class="anchored" data-anchor-id="information-theoretic-view">4.2 Information-Theoretic View</h3>
+<p>VLA-CLIP maximizes mutual information between modalities:</p>
+<p><span class="math display">\[\mathcal{L}_{\text{VLA-CLIP}} \propto -I(Z_v; Z_\ell) - I(Z_v; Z_a) - I(Z_\ell; Z_a)\]</span></p>
+<p>The AR objective then captures <em>conditional</em> dependencies:</p>
+<p><span class="math display">\[\mathcal{L}_{\text{AR}} \propto -I(X_{t+1}; X_{\leq t})\]</span></p>
+<p>Together, they capture both <strong>global alignment</strong> (VLA-CLIP) and <strong>local sequential dependencies</strong> (AR).</p>
+</section>
+<section id="comparison-with-alternatives" class="level3">
+<h3 class="anchored" data-anchor-id="comparison-with-alternatives">4.3 Comparison with Alternatives</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Method</th>
+<th>Global Alignment</th>
+<th>Local Reasoning</th>
+<th>Computation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CLIP + MLP</td>
+<td>✓ (V-L only)</td>
+<td>✗</td>
+<td><span class="math inline">\(O(M + N)\)</span></td>
+</tr>
+<tr class="even">
+<td>Gated Fusion</td>
+<td>Learned gate</td>
+<td>Static</td>
+<td><span class="math inline">\(O(M + N)\)</span></td>
+</tr>
+<tr class="odd">
+<td>Cross-Attention</td>
+<td>Implicit</td>
+<td>Bidirectional</td>
+<td><span class="math inline">\(O(MN)\)</span></td>
+</tr>
+<tr class="even">
+<td><strong>VLA-CLIP + AR</strong></td>
+<td>✓ (V-L-A)</td>
+<td>Causal</td>
+<td><span class="math inline">\(O((M+N)^2)\)</span></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="zero-shot-capabilities" class="level3">
+<h3 class="anchored" data-anchor-id="zero-shot-capabilities">4.4 Zero-Shot Capabilities</h3>
+<p>VLA-CLIP enables several zero-shot capabilities:</p>
+<p><strong>Action Retrieval</strong>: Given instruction <span class="math inline">\(\ell\)</span>, find nearest action: <span class="math display">\[a^* = \arg\max_{a \in \mathcal{A}} z_\ell^\top z_a\]</span></p>
+<p><strong>Video-to-Action</strong>: Given video <span class="math inline">\(\mathbf{v}\)</span>, find corresponding action: <span class="math display">\[a^* = \arg\max_{a \in \mathcal{A}} z_v^\top z_a\]</span></p>
+<p><strong>Cross-Task Transfer</strong>: Tasks with similar language descriptions have similar action embeddings, enabling transfer.</p>
+<hr>
+</section>
+</section>
+<section id="experimental-plan" class="level2">
+<h2 class="anchored" data-anchor-id="experimental-plan">5. Experimental Plan</h2>
+<section id="datasets" class="level3">
+<h3 class="anchored" data-anchor-id="datasets">5.1 Datasets</h3>
+<p><strong>VLA-CLIP Pretraining:</strong> - Open X-Embodiment (~1M robot trajectories) - Ego4D (egocentric video, no actions) - WebVid (video-text pairs, no actions)</p>
+<p><strong>Interleaved BC:</strong> - Open X-Embodiment - Bridge V2 - CALVIN</p>
+<p><strong>RL Fine-tuning:</strong> - Target task environment (simulated or real)</p>
+</section>
+<section id="benchmarks" class="level3">
+<h3 class="anchored" data-anchor-id="benchmarks">5.2 Benchmarks</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 40%">
+<col style="width: 25%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Benchmark</th>
+<th>Focus</th>
+<th>Metrics</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CALVIN</td>
+<td>Long-horizon, language-conditioned</td>
+<td>Success rate, chain length</td>
+</tr>
+<tr class="even">
+<td>Language-Table</td>
+<td>Spatial reasoning</td>
+<td>Success rate by relation type</td>
+</tr>
+<tr class="odd">
+<td>RLBench</td>
+<td>Diverse manipulation</td>
+<td>Per-task success rate</td>
+</tr>
+<tr class="even">
+<td>Real Franka</td>
+<td>Sim-to-real transfer</td>
+<td>Success rate, robustness</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="baselines" class="level3">
+<h3 class="anchored" data-anchor-id="baselines">5.3 Baselines</h3>
+<ul>
+<li><strong>OpenVLA</strong>: VLA baseline</li>
+<li><strong>RT-2</strong>: Large VLA</li>
+<li><strong>Octo</strong>: Diffusion policy</li>
+<li><strong>VLAF (Gated)</strong>: Gated fusion (no AR)</li>
+<li><strong>VLAF-AR (no CLIP)</strong>: AR interleaving without VLA-CLIP pretraining</li>
+</ul>
+</section>
+<section id="ablations" class="level3">
+<h3 class="anchored" data-anchor-id="ablations">5.4 Ablations</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 52%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Ablation</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Remove <span class="math inline">\(\mathcal{L}_{\text{V-L}}\)</span></td>
+<td>Importance of video-language alignment</td>
+</tr>
+<tr class="even">
+<td>Remove <span class="math inline">\(\mathcal{L}_{\text{V-A}}\)</span></td>
+<td>Importance of video-action alignment</td>
+</tr>
+<tr class="odd">
+<td>Remove <span class="math inline">\(\mathcal{L}_{\text{L-A}}\)</span></td>
+<td>Importance of language-action alignment</td>
+</tr>
+<tr class="even">
+<td>Remove <span class="math inline">\(\mathcal{L}_{\text{AR}}\)</span></td>
+<td>Importance of autoregressive objective</td>
+</tr>
+<tr class="odd">
+<td>Concatenate vs.&nbsp;Interleave</td>
+<td>Importance of interleaving strategy</td>
+</tr>
+<tr class="even">
+<td>Vary <span class="math inline">\(\lambda_1\)</span></td>
+<td>AR loss weight sensitivity</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="hypotheses" class="level2">
+<h2 class="anchored" data-anchor-id="hypotheses">6. Hypotheses</h2>
+<p><strong>H1 (Trimodal Alignment):</strong> VLA-CLIP pretraining will improve downstream performance by ≥15% compared to training without contrastive alignment.</p>
+<p><strong>H2 (Complex Reasoning):</strong> VLAF-AR will outperform gated fusion by ≥10% on tasks with complex spatial references (“behind”, “between”, “next to”).</p>
+<p><strong>H3 (Sample Efficiency):</strong> VLA-CLIP + AR will achieve equivalent performance with 50% fewer demonstrations due to better initialization.</p>
+<p><strong>H4 (Zero-Shot Retrieval):</strong> VLA-CLIP embeddings will enable zero-shot action retrieval with ≥60% accuracy on held-out instructions.</p>
+<p><strong>H5 (Cross-Modal Grounding):</strong> Attention visualization will show interpretable patterns (e.g., “red” attending to red pixels).</p>
+<p><strong>H6 (Latency Tradeoff):</strong> VLAF-AR will have higher latency (~150ms) than gated fusion (~50ms) but better accuracy on complex tasks.</p>
+<hr>
+</section>
+<section id="implementation-details" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-details">7. Implementation Details</h2>
+<section id="vla-clip-training" class="level3">
+<h3 class="anchored" data-anchor-id="vla-clip-training">7.1 VLA-CLIP Training</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pseudocode for VLA-CLIP forward pass</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> vla_clip_forward(video, language, action):</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Encode</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    h_v <span class="op">=</span> video_encoder(video)      <span class="co"># [B, d_v]</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    h_l <span class="op">=</span> language_encoder(language) <span class="co"># [B, d_l]</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    h_a <span class="op">=</span> action_encoder(action)     <span class="co"># [B, d_a]</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Project and normalize</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    z_v <span class="op">=</span> F.normalize(proj_v(h_v), dim<span class="op">=-</span><span class="dv">1</span>)  <span class="co"># [B, d]</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    z_l <span class="op">=</span> F.normalize(proj_l(h_l), dim<span class="op">=-</span><span class="dv">1</span>)  <span class="co"># [B, d]</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    z_a <span class="op">=</span> F.normalize(proj_a(h_a), dim<span class="op">=-</span><span class="dv">1</span>)  <span class="co"># [B, d]</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compute pairwise logits</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    logits_vl <span class="op">=</span> z_v <span class="op">@</span> z_l.T <span class="op">/</span> tau  <span class="co"># [B, B]</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    logits_va <span class="op">=</span> z_v <span class="op">@</span> z_a.T <span class="op">/</span> tau  <span class="co"># [B, B]</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    logits_la <span class="op">=</span> z_l <span class="op">@</span> z_a.T <span class="op">/</span> tau  <span class="co"># [B, B]</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># InfoNCE losses</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    labels <span class="op">=</span> torch.arange(B)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    loss_vl <span class="op">=</span> (F.cross_entropy(logits_vl, labels) <span class="op">+</span> </span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>               F.cross_entropy(logits_vl.T, labels)) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    loss_va <span class="op">=</span> (F.cross_entropy(logits_va, labels) <span class="op">+</span> </span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>               F.cross_entropy(logits_va.T, labels)) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    loss_la <span class="op">=</span> (F.cross_entropy(logits_la, labels) <span class="op">+</span> </span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>               F.cross_entropy(logits_la.T, labels)) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loss_vl <span class="op">+</span> loss_va <span class="op">+</span> loss_la</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="interleaved-ar-training" class="level3">
+<h3 class="anchored" data-anchor-id="interleaved-ar-training">7.2 Interleaved AR Training</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pseudocode for VLAF-AR forward pass</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> vlaf_ar_forward(video, language, proprio, action_gt):</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get token sequences from frozen VLA-CLIP encoders</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    z_v <span class="op">=</span> frozen_video_encoder(video)    <span class="co"># [B, M, d]</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    z_l <span class="op">=</span> frozen_language_encoder(language)  <span class="co"># [B, N, d]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    z_p <span class="op">=</span> proprio_embed(proprio)         <span class="co"># [B, 1, d]</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    act_token <span class="op">=</span> act_query.expand(B, <span class="dv">1</span>, d)  <span class="co"># [B, 1, d]</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Interleave</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> interleave(z_v, z_l)  <span class="co"># [B, M+N, d]</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> torch.cat([x, act_token, z_p], dim<span class="op">=</span><span class="dv">1</span>)  <span class="co"># [B, M+N+2, d]</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># AR transformer with causal mask</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    h <span class="op">=</span> ar_transformer(x)  <span class="co"># [B, M+N+2, d]</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Action prediction from [ACT] position</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    h_act <span class="op">=</span> h[:, <span class="op">-</span><span class="dv">2</span>, :]  <span class="co"># [B, d]</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    a_pred <span class="op">=</span> action_decoder(h_act)  <span class="co"># [B, k, d_a]</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Losses</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    loss_action <span class="op">=</span> F.mse_loss(a_pred, action_gt)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    loss_ar <span class="op">=</span> ar_next_token_loss(h[:, :<span class="op">-</span><span class="dv">1</span>], x[:, <span class="dv">1</span>:])</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loss_action <span class="op">+</span> lambda1 <span class="op">*</span> loss_ar</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="hyperparameters" class="level3">
+<h3 class="anchored" data-anchor-id="hyperparameters">7.3 Hyperparameters</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Parameter</th>
+<th>VLA-CLIP</th>
+<th>VLAF-AR</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Batch size</td>
+<td>2048</td>
+<td>256</td>
+</tr>
+<tr class="even">
+<td>Learning rate</td>
+<td>1e-4</td>
+<td>1e-4</td>
+</tr>
+<tr class="odd">
+<td>Optimizer</td>
+<td>AdamW</td>
+<td>AdamW</td>
+</tr>
+<tr class="even">
+<td>Weight decay</td>
+<td>0.1</td>
+<td>0.01</td>
+</tr>
+<tr class="odd">
+<td>Warmup steps</td>
+<td>10,000</td>
+<td>1,000</td>
+</tr>
+<tr class="even">
+<td>Temperature <span class="math inline">\(\tau\)</span></td>
+<td>0.07</td>
+<td>0.1</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\lambda_1\)</span> (AR loss)</td>
+<td>—</td>
+<td>0.1</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\lambda_2\)</span> (aux loss)</td>
+<td>—</td>
+<td>0.01</td>
+</tr>
+<tr class="odd">
+<td>Training steps</td>
+<td>500K</td>
+<td>100K</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="expected-results" class="level2">
+<h2 class="anchored" data-anchor-id="expected-results">8. Expected Results</h2>
+<section id="main-results-projected" class="level3">
+<h3 class="anchored" data-anchor-id="main-results-projected">8.1 Main Results (Projected)</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Method</th>
+<th>CALVIN (Avg Len)</th>
+<th>Language-Table</th>
+<th>RLBench (Avg)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>OpenVLA</td>
+<td>2.1</td>
+<td>68%</td>
+<td>72%</td>
+</tr>
+<tr class="even">
+<td>RT-2</td>
+<td>2.4</td>
+<td>74%</td>
+<td>78%</td>
+</tr>
+<tr class="odd">
+<td>Octo</td>
+<td>1.8</td>
+<td>62%</td>
+<td>70%</td>
+</tr>
+<tr class="even">
+<td>VLAF (Gated)</td>
+<td>2.6</td>
+<td>76%</td>
+<td>80%</td>
+</tr>
+<tr class="odd">
+<td>VLAF-AR (no CLIP)</td>
+<td>2.8</td>
+<td>79%</td>
+<td>82%</td>
+</tr>
+<tr class="even">
+<td><strong>VLAF-AR (full)</strong></td>
+<td><strong>3.2</strong></td>
+<td><strong>85%</strong></td>
+<td><strong>87%</strong></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="ablation-results-projected" class="level3">
+<h3 class="anchored" data-anchor-id="ablation-results-projected">8.2 Ablation Results (Projected)</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Ablation</th>
+<th>CALVIN</th>
+<th>Δ</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Full VLAF-AR</td>
+<td>3.2</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>− VLA-CLIP pretraining</td>
+<td>2.8</td>
+<td>-12.5%</td>
+</tr>
+<tr class="odd">
+<td>− AR loss</td>
+<td>2.9</td>
+<td>-9.4%</td>
+</tr>
+<tr class="even">
+<td>− V-A contrastive</td>
+<td>3.0</td>
+<td>-6.3%</td>
+</tr>
+<tr class="odd">
+<td>− L-A contrastive</td>
+<td>3.0</td>
+<td>-6.3%</td>
+</tr>
+<tr class="even">
+<td>Concatenate (no interleave)</td>
+<td>2.7</td>
+<td>-15.6%</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="limitations-and-future-work" class="level2">
+<h2 class="anchored" data-anchor-id="limitations-and-future-work">9. Limitations and Future Work</h2>
+<section id="limitations" class="level3">
+<h3 class="anchored" data-anchor-id="limitations">9.1 Limitations</h3>
+<ol type="1">
+<li><strong>Compute Cost</strong>: <span class="math inline">\((M+N)^2\)</span> attention may limit real-time deployment</li>
+<li><strong>Data Requirements</strong>: VLA-CLIP pretraining benefits from large-scale paired data</li>
+<li><strong>Modality Gap</strong>: Despite contrastive learning, some modality gap may remain</li>
+</ol>
+</section>
+<section id="future-directions" class="level3">
+<h3 class="anchored" data-anchor-id="future-directions">9.2 Future Directions</h3>
+<ol type="1">
+<li><strong>Sparse Attention</strong>: Reduce complexity to <span class="math inline">\(O((M+N) \log(M+N))\)</span></li>
+<li><strong>Distillation</strong>: Compress trained model for real-time inference</li>
+<li><strong>Additional Modalities</strong>: Add tactile, audio, depth</li>
+<li><strong>Hierarchical VLA-CLIP</strong>: Frame-level + trajectory-level contrastive</li>
+<li><strong>Self-Supervised Actions</strong>: Learn action encoder without labeled actions</li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="conclusion" class="level2">
+<h2 class="anchored" data-anchor-id="conclusion">10. Conclusion</h2>
+<p>VLAF-AR presents a principled approach to unifying video, language, and action representations for robot learning. By combining <strong>trimodal contrastive pretraining</strong> (VLA-CLIP) with <strong>autoregressive interleaving</strong>, we achieve both representational alignment and dynamic cross-modal reasoning.</p>
+<p>The key innovations are:</p>
+<ol type="1">
+<li><strong>VLA-CLIP</strong>: First trimodal (V-L-A) contrastive objective for robotics</li>
+<li><strong>Aligned AR</strong>: Autoregressive transformer over pre-aligned tokens</li>
+<li><strong>LLM-style Pipeline</strong>: Staged training from pretraining to RL fine-tuning</li>
+<li><strong>Zero-Shot Capabilities</strong>: Action retrieval via embedding similarity</li>
+</ol>
+<p>We hypothesize VLAF-AR will advance the state-of-the-art on language-conditioned manipulation, particularly for tasks requiring complex spatial reasoning, multi-step planning, and cross-modal grounding.</p>
+<hr>
+</section>
+<section id="references" class="level2">
+<h2 class="anchored" data-anchor-id="references">References</h2>
+<ol type="1">
+<li>Radford et al.&nbsp;“Learning Transferable Visual Models From Natural Language Supervision.” ICML 2021.</li>
+<li>Brohan et al.&nbsp;“RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control.” CoRL 2023.</li>
+<li>Kim et al.&nbsp;“OpenVLA: An Open-Source Vision-Language-Action Model.” 2024.</li>
+<li>NVIDIA. “Cosmos: World Foundation Models for Physical AI.” 2024.</li>
+<li>Black et al.&nbsp;“π₀: A Vision-Language-Action Flow Model for General Robot Control.” 2024.</li>
+<li>Nair et al.&nbsp;“R3M: A Universal Visual Representation for Robot Manipulation.” CoRL 2022.</li>
+<li>Ma et al.&nbsp;“VIP: Towards Universal Visual Reward and Representation via Value-Implicit Pre-Training.” ICLR 2023.</li>
+</ol>
+<hr>
+</section>
+<section id="appendix-a-loss-function-summary" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-loss-function-summary">Appendix A: Loss Function Summary</h2>
+<section id="a.1-vla-clip-stage-0" class="level3">
+<h3 class="anchored" data-anchor-id="a.1-vla-clip-stage-0">A.1 VLA-CLIP (Stage 0)</h3>
+<p><span class="math display">\[\mathcal{L}_{\text{VLA-CLIP}} = \underbrace{-\log \frac{e^{z_v^\top z_\ell / \tau}}{\sum_j e^{z_v^\top z_{\ell,j} / \tau}}}_{\mathcal{L}_{\text{V-L}}} + \underbrace{-\log \frac{e^{z_v^\top z_a / \tau}}{\sum_j e^{z_v^\top z_{a,j} / \tau}}}_{\mathcal{L}_{\text{V-A}}} + \underbrace{-\log \frac{e^{z_\ell^\top z_a / \tau}}{\sum_j e^{z_\ell^\top z_{a,j} / \tau}}}_{\mathcal{L}_{\text{L-A}}} + \text{(symmetric terms)}\]</span></p>
+</section>
+<section id="a.2-vlaf-ar-stage-2" class="level3">
+<h3 class="anchored" data-anchor-id="a.2-vlaf-ar-stage-2">A.2 VLAF-AR (Stage 2)</h3>
+<p><span class="math display">\[\mathcal{L}_{\text{VLAF-AR}} = \underbrace{\| \pi_\theta(h_{[\text{ACT}]}) - a^* \|^2}_{\mathcal{L}_{\text{action}}} + \lambda_1 \underbrace{\left( -\sum_t \log p_\theta(x_{t+1} | h_t) \right)}_{\mathcal{L}_{\text{AR}}} + \lambda_2 \underbrace{\| \hat{v}_{t+1} - v_{t+1} \|^2}_{\mathcal{L}_{\text{aux}}}\]</span></p>
+</section>
+<section id="a.3-rl-fine-tuning-stage-3" class="level3">
+<h3 class="anchored" data-anchor-id="a.3-rl-fine-tuning-stage-3">A.3 RL Fine-tuning (Stage 3)</h3>
+<p><span class="math display">\[J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{H} \gamma^t r(s_t, a_t) \right], \quad r \in \{0, 1\}\]</span></p>
+<hr>
+</section>
+</section>
+<section id="appendix-b-comparison-table" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-b-comparison-table">Appendix B: Comparison Table</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 17%">
+<col style="width: 13%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Method</th>
+<th>V-L Align</th>
+<th>V-A Align</th>
+<th>L-A Align</th>
+<th>Cross-Modal</th>
+<th>Temporal</th>
+<th>Zero-Shot</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CLIP</td>
+<td>✓✓</td>
+<td>✗</td>
+<td>✗</td>
+<td>Static</td>
+<td>✗</td>
+<td>V↔︎L</td>
+</tr>
+<tr class="even">
+<td>R3M</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>Implicit</td>
+<td>✓</td>
+<td>✗</td>
+</tr>
+<tr class="odd">
+<td>VIP</td>
+<td>✓</td>
+<td>✓</td>
+<td>✗</td>
+<td>Implicit</td>
+<td>✓</td>
+<td>✗</td>
+</tr>
+<tr class="even">
+<td>RT-2</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>Implicit</td>
+<td>✓</td>
+<td>Limited</td>
+</tr>
+<tr class="odd">
+<td>VLAF (Gated)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>Static</td>
+<td>✓</td>
+<td>✗</td>
+</tr>
+<tr class="even">
+<td><strong>VLAF-AR</strong></td>
+<td>✓✓</td>
+<td>✓✓</td>
+<td>✓✓</td>
+<td>Dynamic</td>
+<td>✓✓</td>
+<td>V↔︎L↔︎A</td>
+</tr>
+</tbody>
+</table>
+
+
+<!-- -->
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/rosikand\.github\.io\/research-notebook\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="sourceCode" id="cb3" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># VLAF-AR: Video-Language-Action Fusion with Contrastive Alignment and Autoregressive Interleaving</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>**A Unified Architecture for Language-Conditioned Robot Learning**</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">## Abstract</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>We propose **VLAF-AR**, a novel architecture for language-conditioned robot manipulation that unifies three key innovations: (1) **VLA-CLIP**, a trimodal contrastive pretraining objective that aligns video, language, and action representations in a shared embedding space; (2) **Autoregressive Interleaving**, which processes interleaved video-language token sequences through a causal transformer for dynamic cross-modal reasoning; and (3) a **three-stage training pipeline** analogous to modern LLM training (contrastive pretraining → interleaved behavioral cloning → RL fine-tuning).</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>Our key insight is that cross-modal fusion for robotics requires both **representational alignment** (knowing that "pick up red cup" and the corresponding video and action trajectory are semantically equivalent) and **sequential reasoning** (understanding how language tokens relate to specific video frames and action phases). VLA-CLIP provides the former through contrastive learning; autoregressive interleaving provides the latter through causal attention.</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>We hypothesize VLAF-AR will achieve state-of-the-art performance on complex manipulation tasks requiring fine-grained video-language-action alignment, while maintaining sample efficiency with only 1K-10K robot demonstrations and enabling zero-shot action retrieval via the learned embedding space.</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1. Introduction</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1.1 Problem Statement</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>Language-conditioned robot manipulation requires bridging three modalities:</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Language**: Semantic understanding of goals ("pick up the cup behind the red block")</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Video**: Visual perception of scenes and dynamics (objects, spatial relations, motion)</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Action**: Motor commands that achieve the goal (end-effector trajectories)</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>Current approaches handle at most two modalities well:</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Approach <span class="pp">|</span> V-L Alignment <span class="pp">|</span> V-A Alignment <span class="pp">|</span> L-A Alignment <span class="pp">|</span> Cross-Modal Reasoning <span class="pp">|</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------|---------------|---------------|---------------|----------------------|</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **CLIP** <span class="pp">|</span> ✓✓ <span class="pp">|</span> ✗ <span class="pp">|</span> ✗ <span class="pp">|</span> Static <span class="pp">|</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VLA (RT-2)** <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> Implicit <span class="pp">|</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VAM (Cosmos)** <span class="pp">|</span> ✗ <span class="pp">|</span> ✓✓ <span class="pp">|</span> ✗ <span class="pp">|</span> Temporal <span class="pp">|</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VLAF (Gated)** <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> Static fusion <span class="pp">|</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>None provide both **explicit trimodal alignment** and **dynamic cross-modal reasoning**.</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1.2 Key Insights</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>**Insight 1: Contrastive Alignment as Foundation**</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>Before learning to *reason* across modalities, the model should understand that video of "picking up a red cup", the phrase "pick up the red cup", and the corresponding action trajectory are *the same concept* in different forms. Contrastive learning provides this foundation.</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>**Insight 2: Sequential Reasoning via Autoregression**</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>Understanding "the cup *behind* the red block" requires iterative attention: process "cup" → attend to cup candidates in video → process "behind" → filter by spatial relation → process "red block" → finalize grounding. Autoregressive modeling makes this explicit.</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>**Insight 3: LLM Training Pipeline for Robotics**</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>Modern LLMs succeed via staged training: pretraining → SFT → RLHF. We adapt this for robotics: contrastive pretraining → interleaved BC → RL fine-tuning.</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1.3 Contributions</span></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**VLA-CLIP**: A trimodal contrastive objective aligning video, language, and action in a shared embedding space</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Autoregressive Interleaving**: Dynamic cross-modal reasoning via causal attention over interleaved sequences</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Unified Training Pipeline**: Four-stage approach from contrastive pretraining to RL fine-tuning</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Zero-Shot Capabilities**: Action retrieval and cross-task transfer via the learned embedding space</span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2. Method</span></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2.1 Overview</span></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>VLAF-AR consists of two phases:</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>**Phase 1: VLA-CLIP Pretraining** — Learn a shared embedding space for video, language, and action via contrastive learning</span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>**Phase 2: VLAF-AR Training** — Train an autoregressive transformer over interleaved tokens from the frozen VLA-CLIP encoders</span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2.2 VLA-CLIP: Trimodal Contrastive Pretraining</span></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.2.1 Encoders</span></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>We define three modality-specific encoders:</span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>**Video Encoder** $f_v$: Maps video frames to a sequence of tokens, then pools to a single vector:</span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a>$$h_v = \text{Pool}(f_v(\mathbf{v}_{1:T})) \in \mathbb{R}^{d_v}$$</span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>Architecture: Cosmos-Predict2 DiT or VideoMAE</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a>**Language Encoder** $f_\ell$: Maps token sequence to a single vector:</span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>$$h_\ell = \text{Pool}(f_\ell(\ell)) \in \mathbb{R}^{d_\ell}$$</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a>Architecture: Llama-3 or CLIP text encoder</span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>**Action Encoder** $f_a$: Maps action trajectory to a single vector:</span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>$$h_a = f_a(a_{1:k}) \in \mathbb{R}^{d_a}$$</span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>Architecture: Transformer or 1D CNN over action chunks</span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.2.2 Projection Heads</span></span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a>Project each modality to a shared $d$-dimensional space:</span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>$$z_v = \text{Proj}_v(h_v) = \frac{W_v h_v + b_v}{<span class="sc">\|</span>W_v h_v + b_v<span class="sc">\|</span>_2} \in \mathbb{R}^d$$</span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a>$$z_\ell = \text{Proj}_\ell(h_\ell) = \frac{W_\ell h_\ell + b_\ell}{\|W_\ell h_\ell + b_\ell<span class="sc">\|</span>_2} \in \mathbb{R}^d$$</span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a>$$z_a = \text{Proj}_a(h_a) = \frac{W_a h_a + b_a}{<span class="sc">\|</span>W_a h_a + b_a<span class="sc">\|</span>_2} \in \mathbb{R}^d$$</span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>L2 normalization ensures embeddings lie on a unit hypersphere.</span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.2.3 Contrastive Objectives</span></span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a>We train with three pairwise InfoNCE losses:</span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>**Video-Language Alignment:**</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{V-L}} = -\frac{1}{2B} \sum_{i=1}^{B} \left[ \log \frac{\exp(z_{v,i}^\top z_{\ell,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{v,i}^\top z_{\ell,j} / \tau)} + \log \frac{\exp(z_{\ell,i}^\top z_{v,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{\ell,i}^\top z_{v,j} / \tau)} \right]$$</span>
+<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a>**Video-Action Alignment:**</span>
+<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{V-A}} = -\frac{1}{2B} \sum_{i=1}^{B} \left[ \log \frac{\exp(z_{v,i}^\top z_{a,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{v,i}^\top z_{a,j} / \tau)} + \log \frac{\exp(z_{a,i}^\top z_{v,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{a,i}^\top z_{v,j} / \tau)} \right]$$</span>
+<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a>**Language-Action Alignment:**</span>
+<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{L-A}} = -\frac{1}{2B} \sum_{i=1}^{B} \left[ \log \frac{\exp(z_{\ell,i}^\top z_{a,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{\ell,i}^\top z_{a,j} / \tau)} + \log \frac{\exp(z_{a,i}^\top z_{\ell,i} / \tau)}{\sum_{j=1}^{B} \exp(z_{a,i}^\top z_{\ell,j} / \tau)} \right]$$</span>
+<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a>**Total VLA-CLIP Loss:**</span>
+<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>$$\boxed{\mathcal{L}_{\text{VLA-CLIP}} = \mathcal{L}_{\text{V-L}} + \mathcal{L}_{\text{V-A}} + \mathcal{L}_{\text{L-A}}}$$</span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.2.4 What VLA-CLIP Learns</span></span>
+<span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a>The contrastive objectives ensure:</span>
+<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Property <span class="pp">|</span> Meaning <span class="pp">|</span></span>
+<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------|---------|</span></span>
+<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $z_v \approx z_\ell$ <span class="pp">|</span> Video and its description are nearby <span class="pp">|</span></span>
+<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $z_v \approx z_a$ <span class="pp">|</span> Video and action that produced it are nearby <span class="pp">|</span></span>
+<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $z_\ell \approx z_a$ <span class="pp">|</span> Instruction and action that achieves it are nearby <span class="pp">|</span></span>
+<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $z_v \approx z_\ell \approx z_a$ <span class="pp">|</span> Full trajectory is a coherent point in space <span class="pp">|</span></span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a>This enables **zero-shot action retrieval**: given a new instruction $\ell$, find the nearest action in embedding space:</span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a>$$a^* = \arg\max_{a \in \mathcal{A}_{\text{database}}} z_\ell^\top z_a$$</span>
+<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2.3 Autoregressive Interleaving</span></span>
+<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>After VLA-CLIP pretraining, we freeze the encoders and train an autoregressive transformer.</span>
+<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.3.1 Token Extraction</span></span>
+<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a>Instead of pooling to single vectors, we extract token sequences from frozen encoders:</span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a>$$z_v^{\text{seq}} = f_v(\mathbf{v}_{1:T}) \in \mathbb{R}^{M \times d}$$</span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a>$$z_\ell^{\text{seq}} = f_\ell(\ell) \in \mathbb{R}^{N \times d}$$</span>
+<span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a>These tokens are already in the aligned VLA-CLIP embedding space (via the projection heads applied per-token).</span>
+<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.3.2 Interleaved Sequence Construction</span></span>
+<span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a>We construct the input sequence by interleaving video and language tokens:</span>
+<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a>$$x = <span class="co">[</span><span class="ot">v_1, \ell_1, v_2, \ell_2, \ldots, v_M, \ell_N, [\text{ACT}], p</span><span class="co">]</span>$$</span>
+<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a>Where:</span>
+<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$v_i \in \mathbb{R}^d$: Video token $i$ (from frozen VLA-CLIP encoder)</span>
+<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\ell_j \in \mathbb{R}^d$: Language token $j$ (from frozen VLA-CLIP encoder)</span>
+<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$<span class="co">[</span><span class="ot">\text{ACT}</span><span class="co">]</span> \in \mathbb{R}^d$: Learned action query token</span>
+<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$p \in \mathbb{R}^d$: Proprioceptive embedding</span>
+<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a>**Modality Embeddings:**</span>
+<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a>$$\tilde{x}_i = x_i + e_{\text{pos}}(i) + e_{\text{mod}}(m_i)$$</span>
+<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a>Where $m_i \in <span class="sc">\{</span>\texttt{video}, \texttt{language}, \texttt{action}, \texttt{proprio}<span class="sc">\}</span>$.</span>
+<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.3.3 Autoregressive Transformer</span></span>
+<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a>The AR transformer processes the sequence with causal self-attention:</span>
+<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a>$$h_t = \text{Transformer}(x_{\leq t})$$</span>
+<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a>**Attention Computation:**</span>
+<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a>$$\text{Attn}(Q, K, V) = \text{softmax}\left( \frac{QK^\top}{\sqrt{d_k}} + M_{\text{causal}} \right) V$$</span>
+<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a>Where $M_{\text{causal}}$ is $-\infty$ for future positions and $0$ otherwise.</span>
+<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a>**Key Property**: Because tokens are in the shared VLA-CLIP space, cross-modal attention is meaningful from the start. A language token for "red" can directly attend to video tokens of red objects because they have similar embeddings.</span>
+<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.3.4 Action Decoder</span></span>
+<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a>The action decoder maps $h_{<span class="co">[</span><span class="ot">\text{ACT}</span><span class="co">]</span>}$ to action chunks:</span>
+<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a>**MLP Decoder:**</span>
+<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a>$$a_{t:t+k} = \text{MLP}(h_{<span class="co">[</span><span class="ot">\text{ACT}</span><span class="co">]</span>}) \in \mathbb{R}^{k \times d_a}$$</span>
+<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a>**Flow Matching Decoder:**</span>
+<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a>$$a = a_0 + \int_0^1 v_\theta(a_t, t, h_{<span class="co">[</span><span class="ot">\text{ACT}</span><span class="co">]</span>}) \, dt, \quad a_0 \sim \mathcal{N}(0, I)$$</span>
+<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2.4 Training Objectives (Phase 2)</span></span>
+<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.4.1 Action Prediction Loss</span></span>
+<span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{action}} = \mathbb{E}_{(\mathbf{v}, \ell, p, a^*) \sim \mathcal{D}} \left[ \| \pi_\theta(h_{<span class="co">[</span><span class="ot">\text{ACT}</span><span class="co">]</span>}) - a^* <span class="sc">\|</span>^2 \right]$$</span>
+<span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.4.2 Autoregressive Next-Token Loss</span></span>
+<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{AR}} = -\sum_{t=1}^{|x|-1} \log p_\theta(x_{t+1} | h_t)$$</span>
+<span id="cb3-208"><a href="#cb3-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-209"><a href="#cb3-209" aria-hidden="true" tabindex="-1"></a>Since video and language tokens are in the same VLA-CLIP space, we can use a unified prediction head:</span>
+<span id="cb3-210"><a href="#cb3-210" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-211"><a href="#cb3-211" aria-hidden="true" tabindex="-1"></a>$$p_\theta(x_{t+1} | h_t) \propto \exp(h_t^\top x_{t+1} / \tau)$$</span>
+<span id="cb3-212"><a href="#cb3-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-213"><a href="#cb3-213" aria-hidden="true" tabindex="-1"></a>This is essentially **contrastive next-token prediction**: pull $h_t$ toward the true next token and push away from other tokens in the batch.</span>
+<span id="cb3-214"><a href="#cb3-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-215"><a href="#cb3-215" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.4.3 Auxiliary Video Prediction Loss (Optional)</span></span>
+<span id="cb3-216"><a href="#cb3-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-217"><a href="#cb3-217" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{aux}} = \| \text{Decode}(h_{v_t}) - v_{t+1} <span class="sc">\|</span>^2$$</span>
+<span id="cb3-218"><a href="#cb3-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-219"><a href="#cb3-219" aria-hidden="true" tabindex="-1"></a><span class="fu">#### 2.4.4 Total Loss</span></span>
+<span id="cb3-220"><a href="#cb3-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-221"><a href="#cb3-221" aria-hidden="true" tabindex="-1"></a>$$\boxed{\mathcal{L}_{\text{VLAF-AR}} = \mathcal{L}_{\text{action}} + \lambda_1 \mathcal{L}_{\text{AR}} + \lambda_2 \mathcal{L}_{\text{aux}}}$$</span>
+<span id="cb3-222"><a href="#cb3-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-223"><a href="#cb3-223" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2.5 Full Training Pipeline</span></span>
+<span id="cb3-224"><a href="#cb3-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-225"><a href="#cb3-225" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Stage <span class="pp">|</span> Name <span class="pp">|</span> Loss <span class="pp">|</span> Trainable <span class="pp">|</span> Data <span class="pp">|</span> Analogy <span class="pp">|</span></span>
+<span id="cb3-226"><a href="#cb3-226" aria-hidden="true" tabindex="-1"></a><span class="pp">|-------|------|------|-----------|------|---------|</span></span>
+<span id="cb3-227"><a href="#cb3-227" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **0** <span class="pp">|</span> VLA-CLIP Pretraining <span class="pp">|</span> $\mathcal{L}_{\text{VLA-CLIP}}$ <span class="pp">|</span> Encoders + Projections <span class="pp">|</span> Robot demos + video-text pairs <span class="pp">|</span> CLIP pretraining <span class="pp">|</span></span>
+<span id="cb3-228"><a href="#cb3-228" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **1** <span class="pp">|</span> Freeze Encoders <span class="pp">|</span> — <span class="pp">|</span> — <span class="pp">|</span> — <span class="pp">|</span> — <span class="pp">|</span></span>
+<span id="cb3-229"><a href="#cb3-229" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **2** <span class="pp">|</span> Interleaved BC <span class="pp">|</span> $\mathcal{L}_{\text{action}} + \lambda_1 \mathcal{L}_{\text{AR}}$ <span class="pp">|</span> AR Transformer + Action Decoder <span class="pp">|</span> Open X-Embodiment <span class="pp">|</span> SFT / Mid-training <span class="pp">|</span></span>
+<span id="cb3-230"><a href="#cb3-230" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **3** <span class="pp">|</span> RL Fine-tuning <span class="pp">|</span> $J(\theta) = \mathbb{E}<span class="co">[</span><span class="ot">\sum \gamma^t r_t</span><span class="co">]</span>$ <span class="pp">|</span> Action Decoder (+ LoRA) <span class="pp">|</span> Target task rollouts <span class="pp">|</span> RLHF / RLVR <span class="pp">|</span></span>
+<span id="cb3-231"><a href="#cb3-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-232"><a href="#cb3-232" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-233"><a href="#cb3-233" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-234"><a href="#cb3-234" aria-hidden="true" tabindex="-1"></a><span class="fu">## 3. Architecture Details</span></span>
+<span id="cb3-235"><a href="#cb3-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-236"><a href="#cb3-236" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3.1 VLA-CLIP Encoders</span></span>
+<span id="cb3-237"><a href="#cb3-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-238"><a href="#cb3-238" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Component <span class="pp">|</span> Architecture <span class="pp">|</span> Parameters <span class="pp">|</span> Output <span class="pp">|</span></span>
+<span id="cb3-239"><a href="#cb3-239" aria-hidden="true" tabindex="-1"></a><span class="pp">|-----------|--------------|------------|--------|</span></span>
+<span id="cb3-240"><a href="#cb3-240" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Video Encoder <span class="pp">|</span> Cosmos-Predict2 DiT <span class="pp">|</span> ~300M <span class="pp">|</span> $M$ tokens, $d=1024$ <span class="pp">|</span></span>
+<span id="cb3-241"><a href="#cb3-241" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Language Encoder <span class="pp">|</span> Llama-3-8B (frozen base) <span class="pp">|</span> ~8B <span class="pp">|</span> $N$ tokens, $d=1024$ <span class="pp">|</span></span>
+<span id="cb3-242"><a href="#cb3-242" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Action Encoder <span class="pp">|</span> 4-layer Transformer <span class="pp">|</span> ~10M <span class="pp">|</span> 1 token, $d=1024$ <span class="pp">|</span></span>
+<span id="cb3-243"><a href="#cb3-243" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Projection Heads <span class="pp">|</span> 2-layer MLP <span class="pp">|</span> ~2M each <span class="pp">|</span> $d=512$ (shared space) <span class="pp">|</span></span>
+<span id="cb3-244"><a href="#cb3-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-245"><a href="#cb3-245" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3.2 AR Transformer</span></span>
+<span id="cb3-246"><a href="#cb3-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-247"><a href="#cb3-247" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Hyperparameter <span class="pp">|</span> Value <span class="pp">|</span></span>
+<span id="cb3-248"><a href="#cb3-248" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------------|-------|</span></span>
+<span id="cb3-249"><a href="#cb3-249" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Layers <span class="pp">|</span> 12 <span class="pp">|</span></span>
+<span id="cb3-250"><a href="#cb3-250" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Hidden dim <span class="pp">|</span> 1024 <span class="pp">|</span></span>
+<span id="cb3-251"><a href="#cb3-251" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Attention heads <span class="pp">|</span> 16 <span class="pp">|</span></span>
+<span id="cb3-252"><a href="#cb3-252" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> FFN dim <span class="pp">|</span> 4096 <span class="pp">|</span></span>
+<span id="cb3-253"><a href="#cb3-253" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Dropout <span class="pp">|</span> 0.1 <span class="pp">|</span></span>
+<span id="cb3-254"><a href="#cb3-254" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Max sequence length <span class="pp">|</span> 512 <span class="pp">|</span></span>
+<span id="cb3-255"><a href="#cb3-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-256"><a href="#cb3-256" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3.3 Action Decoder</span></span>
+<span id="cb3-257"><a href="#cb3-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-258"><a href="#cb3-258" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Component <span class="pp">|</span> Architecture <span class="pp">|</span></span>
+<span id="cb3-259"><a href="#cb3-259" aria-hidden="true" tabindex="-1"></a><span class="pp">|-----------|--------------|</span></span>
+<span id="cb3-260"><a href="#cb3-260" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> MLP Decoder <span class="pp">|</span> 3-layer MLP, hidden=512, ReLU <span class="pp">|</span></span>
+<span id="cb3-261"><a href="#cb3-261" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Flow Matching <span class="pp">|</span> 6-layer Transformer, 100 diffusion steps <span class="pp">|</span></span>
+<span id="cb3-262"><a href="#cb3-262" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Action chunk size <span class="pp">|</span> $k=8$ <span class="pp">|</span></span>
+<span id="cb3-263"><a href="#cb3-263" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Action dim <span class="pp">|</span> $d_a=7$ (6-DoF + gripper) <span class="pp">|</span></span>
+<span id="cb3-264"><a href="#cb3-264" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-265"><a href="#cb3-265" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-266"><a href="#cb3-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-267"><a href="#cb3-267" aria-hidden="true" tabindex="-1"></a><span class="fu">## 4. Theoretical Analysis</span></span>
+<span id="cb3-268"><a href="#cb3-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-269"><a href="#cb3-269" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4.1 Why VLA-CLIP Helps Autoregressive Training</span></span>
+<span id="cb3-270"><a href="#cb3-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-271"><a href="#cb3-271" aria-hidden="true" tabindex="-1"></a>**Without VLA-CLIP**: The AR transformer receives tokens from different embedding spaces. Cross-modal attention must learn alignment from scratch.</span>
+<span id="cb3-272"><a href="#cb3-272" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-273"><a href="#cb3-273" aria-hidden="true" tabindex="-1"></a>**With VLA-CLIP**: Tokens are pre-aligned. "Red" (language) and red pixels (video) have high cosine similarity before AR training begins.</span>
+<span id="cb3-274"><a href="#cb3-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-275"><a href="#cb3-275" aria-hidden="true" tabindex="-1"></a>Formally, let $\text{sim}(v_i, \ell_j) = v_i^\top \ell_j$ be the pre-AR attention affinity. VLA-CLIP ensures:</span>
+<span id="cb3-276"><a href="#cb3-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-277"><a href="#cb3-277" aria-hidden="true" tabindex="-1"></a>$$\mathbb{E}<span class="co">[</span><span class="ot">\text{sim}(v_i, \ell_j) | \text{semantically related}</span><span class="co">]</span> &gt; \mathbb{E}<span class="co">[</span><span class="ot">\text{sim}(v_i, \ell_j) | \text{unrelated}</span><span class="co">]</span>$$</span>
+<span id="cb3-278"><a href="#cb3-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-279"><a href="#cb3-279" aria-hidden="true" tabindex="-1"></a>This provides a strong initialization for the attention patterns.</span>
+<span id="cb3-280"><a href="#cb3-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-281"><a href="#cb3-281" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4.2 Information-Theoretic View</span></span>
+<span id="cb3-282"><a href="#cb3-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-283"><a href="#cb3-283" aria-hidden="true" tabindex="-1"></a>VLA-CLIP maximizes mutual information between modalities:</span>
+<span id="cb3-284"><a href="#cb3-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-285"><a href="#cb3-285" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{VLA-CLIP}} \propto -I(Z_v; Z_\ell) - I(Z_v; Z_a) - I(Z_\ell; Z_a)$$</span>
+<span id="cb3-286"><a href="#cb3-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-287"><a href="#cb3-287" aria-hidden="true" tabindex="-1"></a>The AR objective then captures *conditional* dependencies:</span>
+<span id="cb3-288"><a href="#cb3-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-289"><a href="#cb3-289" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{AR}} \propto -I(X_{t+1}; X_{\leq t})$$</span>
+<span id="cb3-290"><a href="#cb3-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-291"><a href="#cb3-291" aria-hidden="true" tabindex="-1"></a>Together, they capture both **global alignment** (VLA-CLIP) and **local sequential dependencies** (AR).</span>
+<span id="cb3-292"><a href="#cb3-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-293"><a href="#cb3-293" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4.3 Comparison with Alternatives</span></span>
+<span id="cb3-294"><a href="#cb3-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-295"><a href="#cb3-295" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> Global Alignment <span class="pp">|</span> Local Reasoning <span class="pp">|</span> Computation <span class="pp">|</span></span>
+<span id="cb3-296"><a href="#cb3-296" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|------------------|-----------------|-------------|</span></span>
+<span id="cb3-297"><a href="#cb3-297" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CLIP + MLP <span class="pp">|</span> ✓ (V-L only) <span class="pp">|</span> ✗ <span class="pp">|</span> $O(M + N)$ <span class="pp">|</span></span>
+<span id="cb3-298"><a href="#cb3-298" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Gated Fusion <span class="pp">|</span> Learned gate <span class="pp">|</span> Static <span class="pp">|</span> $O(M + N)$ <span class="pp">|</span></span>
+<span id="cb3-299"><a href="#cb3-299" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Cross-Attention <span class="pp">|</span> Implicit <span class="pp">|</span> Bidirectional <span class="pp">|</span> $O(MN)$ <span class="pp">|</span></span>
+<span id="cb3-300"><a href="#cb3-300" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VLA-CLIP + AR** <span class="pp">|</span> ✓ (V-L-A) <span class="pp">|</span> Causal <span class="pp">|</span> $O((M+N)^2)$ <span class="pp">|</span></span>
+<span id="cb3-301"><a href="#cb3-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-302"><a href="#cb3-302" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4.4 Zero-Shot Capabilities</span></span>
+<span id="cb3-303"><a href="#cb3-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-304"><a href="#cb3-304" aria-hidden="true" tabindex="-1"></a>VLA-CLIP enables several zero-shot capabilities:</span>
+<span id="cb3-305"><a href="#cb3-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-306"><a href="#cb3-306" aria-hidden="true" tabindex="-1"></a>**Action Retrieval**: Given instruction $\ell$, find nearest action:</span>
+<span id="cb3-307"><a href="#cb3-307" aria-hidden="true" tabindex="-1"></a>$$a^* = \arg\max_{a \in \mathcal{A}} z_\ell^\top z_a$$</span>
+<span id="cb3-308"><a href="#cb3-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-309"><a href="#cb3-309" aria-hidden="true" tabindex="-1"></a>**Video-to-Action**: Given video $\mathbf{v}$, find corresponding action:</span>
+<span id="cb3-310"><a href="#cb3-310" aria-hidden="true" tabindex="-1"></a>$$a^* = \arg\max_{a \in \mathcal{A}} z_v^\top z_a$$</span>
+<span id="cb3-311"><a href="#cb3-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-312"><a href="#cb3-312" aria-hidden="true" tabindex="-1"></a>**Cross-Task Transfer**: Tasks with similar language descriptions have similar action embeddings, enabling transfer.</span>
+<span id="cb3-313"><a href="#cb3-313" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-314"><a href="#cb3-314" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-315"><a href="#cb3-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-316"><a href="#cb3-316" aria-hidden="true" tabindex="-1"></a><span class="fu">## 5. Experimental Plan</span></span>
+<span id="cb3-317"><a href="#cb3-317" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-318"><a href="#cb3-318" aria-hidden="true" tabindex="-1"></a><span class="fu">### 5.1 Datasets</span></span>
+<span id="cb3-319"><a href="#cb3-319" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-320"><a href="#cb3-320" aria-hidden="true" tabindex="-1"></a>**VLA-CLIP Pretraining:**</span>
+<span id="cb3-321"><a href="#cb3-321" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Open X-Embodiment (~1M robot trajectories)</span>
+<span id="cb3-322"><a href="#cb3-322" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Ego4D (egocentric video, no actions)</span>
+<span id="cb3-323"><a href="#cb3-323" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>WebVid (video-text pairs, no actions)</span>
+<span id="cb3-324"><a href="#cb3-324" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-325"><a href="#cb3-325" aria-hidden="true" tabindex="-1"></a>**Interleaved BC:**</span>
+<span id="cb3-326"><a href="#cb3-326" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Open X-Embodiment</span>
+<span id="cb3-327"><a href="#cb3-327" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Bridge V2</span>
+<span id="cb3-328"><a href="#cb3-328" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>CALVIN</span>
+<span id="cb3-329"><a href="#cb3-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-330"><a href="#cb3-330" aria-hidden="true" tabindex="-1"></a>**RL Fine-tuning:**</span>
+<span id="cb3-331"><a href="#cb3-331" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Target task environment (simulated or real)</span>
+<span id="cb3-332"><a href="#cb3-332" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-333"><a href="#cb3-333" aria-hidden="true" tabindex="-1"></a><span class="fu">### 5.2 Benchmarks</span></span>
+<span id="cb3-334"><a href="#cb3-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-335"><a href="#cb3-335" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Benchmark <span class="pp">|</span> Focus <span class="pp">|</span> Metrics <span class="pp">|</span></span>
+<span id="cb3-336"><a href="#cb3-336" aria-hidden="true" tabindex="-1"></a><span class="pp">|-----------|-------|---------|</span></span>
+<span id="cb3-337"><a href="#cb3-337" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CALVIN <span class="pp">|</span> Long-horizon, language-conditioned <span class="pp">|</span> Success rate, chain length <span class="pp">|</span></span>
+<span id="cb3-338"><a href="#cb3-338" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Language-Table <span class="pp">|</span> Spatial reasoning <span class="pp">|</span> Success rate by relation type <span class="pp">|</span></span>
+<span id="cb3-339"><a href="#cb3-339" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> RLBench <span class="pp">|</span> Diverse manipulation <span class="pp">|</span> Per-task success rate <span class="pp">|</span></span>
+<span id="cb3-340"><a href="#cb3-340" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Real Franka <span class="pp">|</span> Sim-to-real transfer <span class="pp">|</span> Success rate, robustness <span class="pp">|</span></span>
+<span id="cb3-341"><a href="#cb3-341" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-342"><a href="#cb3-342" aria-hidden="true" tabindex="-1"></a><span class="fu">### 5.3 Baselines</span></span>
+<span id="cb3-343"><a href="#cb3-343" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-344"><a href="#cb3-344" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**OpenVLA**: VLA baseline</span>
+<span id="cb3-345"><a href="#cb3-345" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**RT-2**: Large VLA</span>
+<span id="cb3-346"><a href="#cb3-346" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Octo**: Diffusion policy</span>
+<span id="cb3-347"><a href="#cb3-347" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**VLAF (Gated)**: Gated fusion (no AR)</span>
+<span id="cb3-348"><a href="#cb3-348" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**VLAF-AR (no CLIP)**: AR interleaving without VLA-CLIP pretraining</span>
+<span id="cb3-349"><a href="#cb3-349" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-350"><a href="#cb3-350" aria-hidden="true" tabindex="-1"></a><span class="fu">### 5.4 Ablations</span></span>
+<span id="cb3-351"><a href="#cb3-351" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-352"><a href="#cb3-352" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Ablation <span class="pp">|</span> Purpose <span class="pp">|</span></span>
+<span id="cb3-353"><a href="#cb3-353" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------|---------|</span></span>
+<span id="cb3-354"><a href="#cb3-354" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Remove $\mathcal{L}_{\text{V-L}}$ <span class="pp">|</span> Importance of video-language alignment <span class="pp">|</span></span>
+<span id="cb3-355"><a href="#cb3-355" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Remove $\mathcal{L}_{\text{V-A}}$ <span class="pp">|</span> Importance of video-action alignment <span class="pp">|</span></span>
+<span id="cb3-356"><a href="#cb3-356" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Remove $\mathcal{L}_{\text{L-A}}$ <span class="pp">|</span> Importance of language-action alignment <span class="pp">|</span></span>
+<span id="cb3-357"><a href="#cb3-357" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Remove $\mathcal{L}_{\text{AR}}$ <span class="pp">|</span> Importance of autoregressive objective <span class="pp">|</span></span>
+<span id="cb3-358"><a href="#cb3-358" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Concatenate vs. Interleave <span class="pp">|</span> Importance of interleaving strategy <span class="pp">|</span></span>
+<span id="cb3-359"><a href="#cb3-359" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Vary $\lambda_1$ <span class="pp">|</span> AR loss weight sensitivity <span class="pp">|</span></span>
+<span id="cb3-360"><a href="#cb3-360" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-361"><a href="#cb3-361" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-362"><a href="#cb3-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-363"><a href="#cb3-363" aria-hidden="true" tabindex="-1"></a><span class="fu">## 6. Hypotheses</span></span>
+<span id="cb3-364"><a href="#cb3-364" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-365"><a href="#cb3-365" aria-hidden="true" tabindex="-1"></a>**H1 (Trimodal Alignment):** VLA-CLIP pretraining will improve downstream performance by ≥15% compared to training without contrastive alignment.</span>
+<span id="cb3-366"><a href="#cb3-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-367"><a href="#cb3-367" aria-hidden="true" tabindex="-1"></a>**H2 (Complex Reasoning):** VLAF-AR will outperform gated fusion by ≥10% on tasks with complex spatial references ("behind", "between", "next to").</span>
+<span id="cb3-368"><a href="#cb3-368" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-369"><a href="#cb3-369" aria-hidden="true" tabindex="-1"></a>**H3 (Sample Efficiency):** VLA-CLIP + AR will achieve equivalent performance with 50% fewer demonstrations due to better initialization.</span>
+<span id="cb3-370"><a href="#cb3-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-371"><a href="#cb3-371" aria-hidden="true" tabindex="-1"></a>**H4 (Zero-Shot Retrieval):** VLA-CLIP embeddings will enable zero-shot action retrieval with ≥60% accuracy on held-out instructions.</span>
+<span id="cb3-372"><a href="#cb3-372" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-373"><a href="#cb3-373" aria-hidden="true" tabindex="-1"></a>**H5 (Cross-Modal Grounding):** Attention visualization will show interpretable patterns (e.g., "red" attending to red pixels).</span>
+<span id="cb3-374"><a href="#cb3-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-375"><a href="#cb3-375" aria-hidden="true" tabindex="-1"></a>**H6 (Latency Tradeoff):** VLAF-AR will have higher latency (~150ms) than gated fusion (~50ms) but better accuracy on complex tasks.</span>
+<span id="cb3-376"><a href="#cb3-376" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-377"><a href="#cb3-377" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-378"><a href="#cb3-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-379"><a href="#cb3-379" aria-hidden="true" tabindex="-1"></a><span class="fu">## 7. Implementation Details</span></span>
+<span id="cb3-380"><a href="#cb3-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-381"><a href="#cb3-381" aria-hidden="true" tabindex="-1"></a><span class="fu">### 7.1 VLA-CLIP Training</span></span>
+<span id="cb3-382"><a href="#cb3-382" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-383"><a href="#cb3-383" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb3-384"><a href="#cb3-384" aria-hidden="true" tabindex="-1"></a><span class="co"># Pseudocode for VLA-CLIP forward pass</span></span>
+<span id="cb3-385"><a href="#cb3-385" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> vla_clip_forward(video, language, action):</span>
+<span id="cb3-386"><a href="#cb3-386" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Encode</span></span>
+<span id="cb3-387"><a href="#cb3-387" aria-hidden="true" tabindex="-1"></a>    h_v <span class="op">=</span> video_encoder(video)      <span class="co"># [B, d_v]</span></span>
+<span id="cb3-388"><a href="#cb3-388" aria-hidden="true" tabindex="-1"></a>    h_l <span class="op">=</span> language_encoder(language) <span class="co"># [B, d_l]</span></span>
+<span id="cb3-389"><a href="#cb3-389" aria-hidden="true" tabindex="-1"></a>    h_a <span class="op">=</span> action_encoder(action)     <span class="co"># [B, d_a]</span></span>
+<span id="cb3-390"><a href="#cb3-390" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-391"><a href="#cb3-391" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Project and normalize</span></span>
+<span id="cb3-392"><a href="#cb3-392" aria-hidden="true" tabindex="-1"></a>    z_v <span class="op">=</span> F.normalize(proj_v(h_v), dim<span class="op">=-</span><span class="dv">1</span>)  <span class="co"># [B, d]</span></span>
+<span id="cb3-393"><a href="#cb3-393" aria-hidden="true" tabindex="-1"></a>    z_l <span class="op">=</span> F.normalize(proj_l(h_l), dim<span class="op">=-</span><span class="dv">1</span>)  <span class="co"># [B, d]</span></span>
+<span id="cb3-394"><a href="#cb3-394" aria-hidden="true" tabindex="-1"></a>    z_a <span class="op">=</span> F.normalize(proj_a(h_a), dim<span class="op">=-</span><span class="dv">1</span>)  <span class="co"># [B, d]</span></span>
+<span id="cb3-395"><a href="#cb3-395" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-396"><a href="#cb3-396" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Compute pairwise logits</span></span>
+<span id="cb3-397"><a href="#cb3-397" aria-hidden="true" tabindex="-1"></a>    logits_vl <span class="op">=</span> z_v <span class="op">@</span> z_l.T <span class="op">/</span> tau  <span class="co"># [B, B]</span></span>
+<span id="cb3-398"><a href="#cb3-398" aria-hidden="true" tabindex="-1"></a>    logits_va <span class="op">=</span> z_v <span class="op">@</span> z_a.T <span class="op">/</span> tau  <span class="co"># [B, B]</span></span>
+<span id="cb3-399"><a href="#cb3-399" aria-hidden="true" tabindex="-1"></a>    logits_la <span class="op">=</span> z_l <span class="op">@</span> z_a.T <span class="op">/</span> tau  <span class="co"># [B, B]</span></span>
+<span id="cb3-400"><a href="#cb3-400" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-401"><a href="#cb3-401" aria-hidden="true" tabindex="-1"></a>    <span class="co"># InfoNCE losses</span></span>
+<span id="cb3-402"><a href="#cb3-402" aria-hidden="true" tabindex="-1"></a>    labels <span class="op">=</span> torch.arange(B)</span>
+<span id="cb3-403"><a href="#cb3-403" aria-hidden="true" tabindex="-1"></a>    loss_vl <span class="op">=</span> (F.cross_entropy(logits_vl, labels) <span class="op">+</span> </span>
+<span id="cb3-404"><a href="#cb3-404" aria-hidden="true" tabindex="-1"></a>               F.cross_entropy(logits_vl.T, labels)) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb3-405"><a href="#cb3-405" aria-hidden="true" tabindex="-1"></a>    loss_va <span class="op">=</span> (F.cross_entropy(logits_va, labels) <span class="op">+</span> </span>
+<span id="cb3-406"><a href="#cb3-406" aria-hidden="true" tabindex="-1"></a>               F.cross_entropy(logits_va.T, labels)) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb3-407"><a href="#cb3-407" aria-hidden="true" tabindex="-1"></a>    loss_la <span class="op">=</span> (F.cross_entropy(logits_la, labels) <span class="op">+</span> </span>
+<span id="cb3-408"><a href="#cb3-408" aria-hidden="true" tabindex="-1"></a>               F.cross_entropy(logits_la.T, labels)) <span class="op">/</span> <span class="dv">2</span></span>
+<span id="cb3-409"><a href="#cb3-409" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-410"><a href="#cb3-410" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loss_vl <span class="op">+</span> loss_va <span class="op">+</span> loss_la</span>
+<span id="cb3-411"><a href="#cb3-411" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-412"><a href="#cb3-412" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-413"><a href="#cb3-413" aria-hidden="true" tabindex="-1"></a><span class="fu">### 7.2 Interleaved AR Training</span></span>
+<span id="cb3-414"><a href="#cb3-414" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-415"><a href="#cb3-415" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb3-416"><a href="#cb3-416" aria-hidden="true" tabindex="-1"></a><span class="co"># Pseudocode for VLAF-AR forward pass</span></span>
+<span id="cb3-417"><a href="#cb3-417" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> vlaf_ar_forward(video, language, proprio, action_gt):</span>
+<span id="cb3-418"><a href="#cb3-418" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get token sequences from frozen VLA-CLIP encoders</span></span>
+<span id="cb3-419"><a href="#cb3-419" aria-hidden="true" tabindex="-1"></a>    z_v <span class="op">=</span> frozen_video_encoder(video)    <span class="co"># [B, M, d]</span></span>
+<span id="cb3-420"><a href="#cb3-420" aria-hidden="true" tabindex="-1"></a>    z_l <span class="op">=</span> frozen_language_encoder(language)  <span class="co"># [B, N, d]</span></span>
+<span id="cb3-421"><a href="#cb3-421" aria-hidden="true" tabindex="-1"></a>    z_p <span class="op">=</span> proprio_embed(proprio)         <span class="co"># [B, 1, d]</span></span>
+<span id="cb3-422"><a href="#cb3-422" aria-hidden="true" tabindex="-1"></a>    act_token <span class="op">=</span> act_query.expand(B, <span class="dv">1</span>, d)  <span class="co"># [B, 1, d]</span></span>
+<span id="cb3-423"><a href="#cb3-423" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-424"><a href="#cb3-424" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Interleave</span></span>
+<span id="cb3-425"><a href="#cb3-425" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> interleave(z_v, z_l)  <span class="co"># [B, M+N, d]</span></span>
+<span id="cb3-426"><a href="#cb3-426" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> torch.cat([x, act_token, z_p], dim<span class="op">=</span><span class="dv">1</span>)  <span class="co"># [B, M+N+2, d]</span></span>
+<span id="cb3-427"><a href="#cb3-427" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-428"><a href="#cb3-428" aria-hidden="true" tabindex="-1"></a>    <span class="co"># AR transformer with causal mask</span></span>
+<span id="cb3-429"><a href="#cb3-429" aria-hidden="true" tabindex="-1"></a>    h <span class="op">=</span> ar_transformer(x)  <span class="co"># [B, M+N+2, d]</span></span>
+<span id="cb3-430"><a href="#cb3-430" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-431"><a href="#cb3-431" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Action prediction from [ACT] position</span></span>
+<span id="cb3-432"><a href="#cb3-432" aria-hidden="true" tabindex="-1"></a>    h_act <span class="op">=</span> h[:, <span class="op">-</span><span class="dv">2</span>, :]  <span class="co"># [B, d]</span></span>
+<span id="cb3-433"><a href="#cb3-433" aria-hidden="true" tabindex="-1"></a>    a_pred <span class="op">=</span> action_decoder(h_act)  <span class="co"># [B, k, d_a]</span></span>
+<span id="cb3-434"><a href="#cb3-434" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-435"><a href="#cb3-435" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Losses</span></span>
+<span id="cb3-436"><a href="#cb3-436" aria-hidden="true" tabindex="-1"></a>    loss_action <span class="op">=</span> F.mse_loss(a_pred, action_gt)</span>
+<span id="cb3-437"><a href="#cb3-437" aria-hidden="true" tabindex="-1"></a>    loss_ar <span class="op">=</span> ar_next_token_loss(h[:, :<span class="op">-</span><span class="dv">1</span>], x[:, <span class="dv">1</span>:])</span>
+<span id="cb3-438"><a href="#cb3-438" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-439"><a href="#cb3-439" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> loss_action <span class="op">+</span> lambda1 <span class="op">*</span> loss_ar</span>
+<span id="cb3-440"><a href="#cb3-440" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-441"><a href="#cb3-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-442"><a href="#cb3-442" aria-hidden="true" tabindex="-1"></a><span class="fu">### 7.3 Hyperparameters</span></span>
+<span id="cb3-443"><a href="#cb3-443" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-444"><a href="#cb3-444" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Parameter <span class="pp">|</span> VLA-CLIP <span class="pp">|</span> VLAF-AR <span class="pp">|</span></span>
+<span id="cb3-445"><a href="#cb3-445" aria-hidden="true" tabindex="-1"></a><span class="pp">|-----------|----------|---------|</span></span>
+<span id="cb3-446"><a href="#cb3-446" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Batch size <span class="pp">|</span> 2048 <span class="pp">|</span> 256 <span class="pp">|</span></span>
+<span id="cb3-447"><a href="#cb3-447" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Learning rate <span class="pp">|</span> 1e-4 <span class="pp">|</span> 1e-4 <span class="pp">|</span></span>
+<span id="cb3-448"><a href="#cb3-448" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Optimizer <span class="pp">|</span> AdamW <span class="pp">|</span> AdamW <span class="pp">|</span></span>
+<span id="cb3-449"><a href="#cb3-449" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Weight decay <span class="pp">|</span> 0.1 <span class="pp">|</span> 0.01 <span class="pp">|</span></span>
+<span id="cb3-450"><a href="#cb3-450" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Warmup steps <span class="pp">|</span> 10,000 <span class="pp">|</span> 1,000 <span class="pp">|</span></span>
+<span id="cb3-451"><a href="#cb3-451" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Temperature $\tau$ <span class="pp">|</span> 0.07 <span class="pp">|</span> 0.1 <span class="pp">|</span></span>
+<span id="cb3-452"><a href="#cb3-452" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\lambda_1$ (AR loss) <span class="pp">|</span> — <span class="pp">|</span> 0.1 <span class="pp">|</span></span>
+<span id="cb3-453"><a href="#cb3-453" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> $\lambda_2$ (aux loss) <span class="pp">|</span> — <span class="pp">|</span> 0.01 <span class="pp">|</span></span>
+<span id="cb3-454"><a href="#cb3-454" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Training steps <span class="pp">|</span> 500K <span class="pp">|</span> 100K <span class="pp">|</span></span>
+<span id="cb3-455"><a href="#cb3-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-456"><a href="#cb3-456" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-457"><a href="#cb3-457" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-458"><a href="#cb3-458" aria-hidden="true" tabindex="-1"></a><span class="fu">## 8. Expected Results</span></span>
+<span id="cb3-459"><a href="#cb3-459" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-460"><a href="#cb3-460" aria-hidden="true" tabindex="-1"></a><span class="fu">### 8.1 Main Results (Projected)</span></span>
+<span id="cb3-461"><a href="#cb3-461" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-462"><a href="#cb3-462" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> CALVIN (Avg Len) <span class="pp">|</span> Language-Table <span class="pp">|</span> RLBench (Avg) <span class="pp">|</span></span>
+<span id="cb3-463"><a href="#cb3-463" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|------------------|----------------|---------------|</span></span>
+<span id="cb3-464"><a href="#cb3-464" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> OpenVLA <span class="pp">|</span> 2.1 <span class="pp">|</span> 68% <span class="pp">|</span> 72% <span class="pp">|</span></span>
+<span id="cb3-465"><a href="#cb3-465" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> RT-2 <span class="pp">|</span> 2.4 <span class="pp">|</span> 74% <span class="pp">|</span> 78% <span class="pp">|</span></span>
+<span id="cb3-466"><a href="#cb3-466" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Octo <span class="pp">|</span> 1.8 <span class="pp">|</span> 62% <span class="pp">|</span> 70% <span class="pp">|</span></span>
+<span id="cb3-467"><a href="#cb3-467" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> VLAF (Gated) <span class="pp">|</span> 2.6 <span class="pp">|</span> 76% <span class="pp">|</span> 80% <span class="pp">|</span></span>
+<span id="cb3-468"><a href="#cb3-468" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> VLAF-AR (no CLIP) <span class="pp">|</span> 2.8 <span class="pp">|</span> 79% <span class="pp">|</span> 82% <span class="pp">|</span></span>
+<span id="cb3-469"><a href="#cb3-469" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VLAF-AR (full)** | **3.2** | **85%** | **87%** <span class="pp">|</span></span>
+<span id="cb3-470"><a href="#cb3-470" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-471"><a href="#cb3-471" aria-hidden="true" tabindex="-1"></a><span class="fu">### 8.2 Ablation Results (Projected)</span></span>
+<span id="cb3-472"><a href="#cb3-472" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-473"><a href="#cb3-473" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Ablation <span class="pp">|</span> CALVIN <span class="pp">|</span> Δ <span class="pp">|</span></span>
+<span id="cb3-474"><a href="#cb3-474" aria-hidden="true" tabindex="-1"></a><span class="pp">|----------|--------|---|</span></span>
+<span id="cb3-475"><a href="#cb3-475" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Full VLAF-AR <span class="pp">|</span> 3.2 <span class="pp">|</span> — <span class="pp">|</span></span>
+<span id="cb3-476"><a href="#cb3-476" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> − VLA-CLIP pretraining <span class="pp">|</span> 2.8 <span class="pp">|</span> -12.5% <span class="pp">|</span></span>
+<span id="cb3-477"><a href="#cb3-477" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> − AR loss <span class="pp">|</span> 2.9 <span class="pp">|</span> -9.4% <span class="pp">|</span></span>
+<span id="cb3-478"><a href="#cb3-478" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> − V-A contrastive <span class="pp">|</span> 3.0 <span class="pp">|</span> -6.3% <span class="pp">|</span></span>
+<span id="cb3-479"><a href="#cb3-479" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> − L-A contrastive <span class="pp">|</span> 3.0 <span class="pp">|</span> -6.3% <span class="pp">|</span></span>
+<span id="cb3-480"><a href="#cb3-480" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Concatenate (no interleave) <span class="pp">|</span> 2.7 <span class="pp">|</span> -15.6% <span class="pp">|</span></span>
+<span id="cb3-481"><a href="#cb3-481" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-482"><a href="#cb3-482" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-483"><a href="#cb3-483" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-484"><a href="#cb3-484" aria-hidden="true" tabindex="-1"></a><span class="fu">## 9. Limitations and Future Work</span></span>
+<span id="cb3-485"><a href="#cb3-485" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-486"><a href="#cb3-486" aria-hidden="true" tabindex="-1"></a><span class="fu">### 9.1 Limitations</span></span>
+<span id="cb3-487"><a href="#cb3-487" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-488"><a href="#cb3-488" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Compute Cost**: $(M+N)^2$ attention may limit real-time deployment</span>
+<span id="cb3-489"><a href="#cb3-489" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Data Requirements**: VLA-CLIP pretraining benefits from large-scale paired data</span>
+<span id="cb3-490"><a href="#cb3-490" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Modality Gap**: Despite contrastive learning, some modality gap may remain</span>
+<span id="cb3-491"><a href="#cb3-491" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-492"><a href="#cb3-492" aria-hidden="true" tabindex="-1"></a><span class="fu">### 9.2 Future Directions</span></span>
+<span id="cb3-493"><a href="#cb3-493" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-494"><a href="#cb3-494" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Sparse Attention**: Reduce complexity to $O((M+N) \log(M+N))$</span>
+<span id="cb3-495"><a href="#cb3-495" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Distillation**: Compress trained model for real-time inference</span>
+<span id="cb3-496"><a href="#cb3-496" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Additional Modalities**: Add tactile, audio, depth</span>
+<span id="cb3-497"><a href="#cb3-497" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Hierarchical VLA-CLIP**: Frame-level + trajectory-level contrastive</span>
+<span id="cb3-498"><a href="#cb3-498" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Self-Supervised Actions**: Learn action encoder without labeled actions</span>
+<span id="cb3-499"><a href="#cb3-499" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-500"><a href="#cb3-500" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-501"><a href="#cb3-501" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-502"><a href="#cb3-502" aria-hidden="true" tabindex="-1"></a><span class="fu">## 10. Conclusion</span></span>
+<span id="cb3-503"><a href="#cb3-503" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-504"><a href="#cb3-504" aria-hidden="true" tabindex="-1"></a>VLAF-AR presents a principled approach to unifying video, language, and action representations for robot learning. By combining **trimodal contrastive pretraining** (VLA-CLIP) with **autoregressive interleaving**, we achieve both representational alignment and dynamic cross-modal reasoning.</span>
+<span id="cb3-505"><a href="#cb3-505" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-506"><a href="#cb3-506" aria-hidden="true" tabindex="-1"></a>The key innovations are:</span>
+<span id="cb3-507"><a href="#cb3-507" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-508"><a href="#cb3-508" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**VLA-CLIP**: First trimodal (V-L-A) contrastive objective for robotics</span>
+<span id="cb3-509"><a href="#cb3-509" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Aligned AR**: Autoregressive transformer over pre-aligned tokens</span>
+<span id="cb3-510"><a href="#cb3-510" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**LLM-style Pipeline**: Staged training from pretraining to RL fine-tuning</span>
+<span id="cb3-511"><a href="#cb3-511" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Zero-Shot Capabilities**: Action retrieval via embedding similarity</span>
+<span id="cb3-512"><a href="#cb3-512" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-513"><a href="#cb3-513" aria-hidden="true" tabindex="-1"></a>We hypothesize VLAF-AR will advance the state-of-the-art on language-conditioned manipulation, particularly for tasks requiring complex spatial reasoning, multi-step planning, and cross-modal grounding.</span>
+<span id="cb3-514"><a href="#cb3-514" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-515"><a href="#cb3-515" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-516"><a href="#cb3-516" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-517"><a href="#cb3-517" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb3-518"><a href="#cb3-518" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-519"><a href="#cb3-519" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Radford et al. "Learning Transferable Visual Models From Natural Language Supervision." ICML 2021.</span>
+<span id="cb3-520"><a href="#cb3-520" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Brohan et al. "RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control." CoRL 2023.</span>
+<span id="cb3-521"><a href="#cb3-521" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Kim et al. "OpenVLA: An Open-Source Vision-Language-Action Model." 2024.</span>
+<span id="cb3-522"><a href="#cb3-522" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>NVIDIA. "Cosmos: World Foundation Models for Physical AI." 2024.</span>
+<span id="cb3-523"><a href="#cb3-523" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>Black et al. "π₀: A Vision-Language-Action Flow Model for General Robot Control." 2024.</span>
+<span id="cb3-524"><a href="#cb3-524" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>Nair et al. "R3M: A Universal Visual Representation for Robot Manipulation." CoRL 2022.</span>
+<span id="cb3-525"><a href="#cb3-525" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>Ma et al. "VIP: Towards Universal Visual Reward and Representation via Value-Implicit Pre-Training." ICLR 2023.</span>
+<span id="cb3-526"><a href="#cb3-526" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-527"><a href="#cb3-527" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-528"><a href="#cb3-528" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-529"><a href="#cb3-529" aria-hidden="true" tabindex="-1"></a><span class="fu">## Appendix A: Loss Function Summary</span></span>
+<span id="cb3-530"><a href="#cb3-530" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-531"><a href="#cb3-531" aria-hidden="true" tabindex="-1"></a><span class="fu">### A.1 VLA-CLIP (Stage 0)</span></span>
+<span id="cb3-532"><a href="#cb3-532" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-533"><a href="#cb3-533" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{VLA-CLIP}} = \underbrace{-\log \frac{e^{z_v^\top z_\ell / \tau}}{\sum_j e^{z_v^\top z_{\ell,j} / \tau}}}_{\mathcal{L}_{\text{V-L}}} + \underbrace{-\log \frac{e^{z_v^\top z_a / \tau}}{\sum_j e^{z_v^\top z_{a,j} / \tau}}}_{\mathcal{L}_{\text{V-A}}} + \underbrace{-\log \frac{e^{z_\ell^\top z_a / \tau}}{\sum_j e^{z_\ell^\top z_{a,j} / \tau}}}_{\mathcal{L}_{\text{L-A}}} + \text{(symmetric terms)}$$</span>
+<span id="cb3-534"><a href="#cb3-534" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-535"><a href="#cb3-535" aria-hidden="true" tabindex="-1"></a><span class="fu">### A.2 VLAF-AR (Stage 2)</span></span>
+<span id="cb3-536"><a href="#cb3-536" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-537"><a href="#cb3-537" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{VLAF-AR}} = \underbrace{\| \pi_\theta(h_{[\text{ACT}]}) - a^* \|^2}_{\mathcal{L}_{\text{action}}} + \lambda_1 \underbrace{\left( -\sum_t \log p_\theta(x_{t+1} | h_t) \right)}_{\mathcal{L}_{\text{AR}}} + \lambda_2 \underbrace{\| \hat{v}_{t+1} - v_{t+1} \|^2}_{\mathcal{L}_{\text{aux}}}$$</span>
+<span id="cb3-538"><a href="#cb3-538" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-539"><a href="#cb3-539" aria-hidden="true" tabindex="-1"></a><span class="fu">### A.3 RL Fine-tuning (Stage 3)</span></span>
+<span id="cb3-540"><a href="#cb3-540" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-541"><a href="#cb3-541" aria-hidden="true" tabindex="-1"></a>$$J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta} \left[ \sum_{t=0}^{H} \gamma^t r(s_t, a_t) \right], \quad r \in <span class="sc">\{</span>0, 1<span class="sc">\}</span>$$</span>
+<span id="cb3-542"><a href="#cb3-542" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-543"><a href="#cb3-543" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-544"><a href="#cb3-544" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-545"><a href="#cb3-545" aria-hidden="true" tabindex="-1"></a><span class="fu">## Appendix B: Comparison Table</span></span>
+<span id="cb3-546"><a href="#cb3-546" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-547"><a href="#cb3-547" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Method <span class="pp">|</span> V-L Align <span class="pp">|</span> V-A Align <span class="pp">|</span> L-A Align <span class="pp">|</span> Cross-Modal <span class="pp">|</span> Temporal <span class="pp">|</span> Zero-Shot <span class="pp">|</span></span>
+<span id="cb3-548"><a href="#cb3-548" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|-----------|-----------|-----------|-------------|----------|-----------|</span></span>
+<span id="cb3-549"><a href="#cb3-549" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> CLIP <span class="pp">|</span> ✓✓ <span class="pp">|</span> ✗ <span class="pp">|</span> ✗ <span class="pp">|</span> Static <span class="pp">|</span> ✗ <span class="pp">|</span> V↔L <span class="pp">|</span></span>
+<span id="cb3-550"><a href="#cb3-550" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> R3M <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> ✗ <span class="pp">|</span> Implicit <span class="pp">|</span> ✓ <span class="pp">|</span> ✗ <span class="pp">|</span></span>
+<span id="cb3-551"><a href="#cb3-551" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> VIP <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> ✗ <span class="pp">|</span> Implicit <span class="pp">|</span> ✓ <span class="pp">|</span> ✗ <span class="pp">|</span></span>
+<span id="cb3-552"><a href="#cb3-552" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> RT-2 <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> Implicit <span class="pp">|</span> ✓ <span class="pp">|</span> Limited <span class="pp">|</span></span>
+<span id="cb3-553"><a href="#cb3-553" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> VLAF (Gated) <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> ✓ <span class="pp">|</span> Static <span class="pp">|</span> ✓ <span class="pp">|</span> ✗ <span class="pp">|</span></span>
+<span id="cb3-554"><a href="#cb3-554" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **VLAF-AR** <span class="pp">|</span> ✓✓ <span class="pp">|</span> ✓✓ <span class="pp">|</span> ✓✓ <span class="pp">|</span> Dynamic <span class="pp">|</span> ✓✓ <span class="pp">|</span> V↔L↔A <span class="pp">|</span></span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+      &nbsp;
+    </div>   
+    <div class="nav-footer-center">
+<p>Built with <a href="https://quarto.org/">Quarto</a></p>
+</div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>
