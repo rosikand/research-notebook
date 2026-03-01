@@ -391,7 +391,7 @@ window.Quarto = {
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         
-    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cmw=">rl <span class="quarto-category-count">(2)</span></div></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></div>
+    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(3)</span></div><div class="category" data-category="cmw=">rl <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cm9ib3QlMjBsZWFybmluZw==">robot learning <span class="quarto-category-count">(1)</span></div><div class="category" data-category="dmxh">vla <span class="quarto-category-count">(1)</span></div></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
@@ -470,7 +470,41 @@ Summary
 </thead>
 <tbody class="list">
 
-<tr data-index="0" data-categories="cmw=" data-listing-date-sort="1772092800000" data-listing-file-modified-sort="1772331706888" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="5" data-listing-word-count-sort="959" data-listing-title-sort="Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
+<tr data-index="0" data-categories="cmw=" data-listing-date-sort="1772352000000" data-listing-file-modified-sort="1772370633535" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="27" data-listing-title-sort="Motivation" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
+ if (href) { window.location=href ; return false; }">
+<td>
+<span class="listing-date">Mar 1, 2026</span>
+</td>
+<td>
+<a href="../ideas/2026-03-01-mcts-distillation/index.html" class="title listing-title">Motivation</a>
+</td>
+<td>
+<span class="listing-categories">rl</span>
+</td>
+<td>
+<span class="listing-description">Why is this worth pursuing? What gap does it fill?</span>
+</td>
+
+</tr>
+
+<tr data-index="1" data-categories="dmxhJTJDcm9ib3QlMjBsZWFybmluZw==" data-listing-date-sort="1772352000000" data-listing-file-modified-sort="1772370325072" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="18" data-listing-word-count-sort="3462" data-listing-title-sort="VLAF: Video-Language-Action Fusion for Robot Learning Backbone" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
+ if (href) { window.location=href ; return false; }">
+<td>
+<span class="listing-date">Mar 1, 2026</span>
+</td>
+<td>
+<a href="../ideas/2026-03-01-vlaf/index.html" class="title listing-title">VLAF: Video-Language-Action Fusion for Robot Learning Backbone</a>
+</td>
+<td>
+<span class="listing-categories">vla, robot learning</span>
+</td>
+<td>
+<span class="listing-description">Condition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch.</span>
+</td>
+
+</tr>
+
+<tr data-index="2" data-categories="cmw=" data-listing-date-sort="1772092800000" data-listing-file-modified-sort="1772331706888" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="5" data-listing-word-count-sort="959" data-listing-title-sort="Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
  if (href) { window.location=href ; return false; }">
 <td>
 <span class="listing-date">Feb 26, 2026</span>
@@ -483,23 +517,6 @@ Summary
 </td>
 <td>
 <span class="listing-description">Co-evolve a critic alongside the policy to detect and mitigate reward hacking online</span>
-</td>
-
-</tr>
-
-<tr data-index="1" data-categories="cmw=" data-listing-date-sort="1772092800000" data-listing-file-modified-sort="1772331706889" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="16" data-listing-word-count-sort="3022" data-listing-title-sort="Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
- if (href) { window.location=href ; return false; }">
-<td>
-<span class="listing-date">Feb 26, 2026</span>
-</td>
-<td>
-<a href="../ideas/2026-02-27-self-distill-reward-hacking/index.html" class="title listing-title">Self-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment</a>
-</td>
-<td>
-<span class="listing-categories">rl</span>
-</td>
-<td>
-<span class="listing-description">Condition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch.</span>
 </td>
 
 </tr>
@@ -644,7 +661,7 @@ Summary
     }
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp('/' + window.location.host + '/');
+        var filterRegex = new RegExp("https:\/\/rosikand\.github\.io\/research-notebook\/");
       var isInternal = (href) => {
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
