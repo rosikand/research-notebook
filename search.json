@@ -329,39 +329,60 @@
     "text": "Appendix B: Architecture Comparison\n\n\n\n\n\n\n\n\n\n\nVLAF-Gate\nVLAF-AR\nVLAF-AR+\n\n\n\n\nVideo Encoder\nCosmos (frozen)\nCosmos (frozen)\nCosmos (VLA-CLIP trained, then frozen)\n\n\nLanguage Encoder\nLlama (frozen)\nLlama (frozen)\nLlama (VLA-CLIP trained, then frozen)\n\n\nAction Encoder\n—\n—\nTransformer (VLA-CLIP trained, then frozen)\n\n\nFusion\nGated MLP\nAR Transformer\nAR Transformer\n\n\nAction Decoder\nMLP / Flow\nMLP / Flow\nMLP / Flow\n\n\nTrainable (BC)\nFusion + Decoder\nAR + Decoder\nAR + Decoder\n\n\nAttention\n\\(O(M+N)\\)\n\\(O((M+N)^2)\\)\n\\(O((M+N)^2)\\)\n\n\nLatency\n~50ms\n~150ms\n~150ms\n\n\nZero-shot\n✗\n✗\n✓\n\n\nBest for\nReal-time\nComplex reasoning\nMaximum performance"
   },
   {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html",
-    "title": "GRPO Training Pipeline Setup Notes",
+    "objectID": "notes/index.html",
+    "href": "notes/index.html",
+    "title": "Notes",
     "section": "",
-    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
+    "text": "Technical notes, experiment logs, debugging journals, and everything else.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Note\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nNote\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nGRPO Training Pipeline Setup Notes\n\n\nrl, medenv, infra\n\n\nTechnical setup notes for the GRPO training pipeline on MedEnv tasks.\n\n\n\n\n\n\nNo matching items"
   },
   {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#environment",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#environment",
-    "title": "GRPO Training Pipeline Setup Notes",
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
     "section": "",
-    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
+    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
   },
   {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "Training Config",
-    "text": "Training Config\ntraining_config = {\n    \"group_size\": 8,          # completions per prompt\n    \"learning_rate\": 1e-6,\n    \"kl_coeff\": 0.05,\n    \"max_turns\": 15,          # max conversation turns per episode\n    \"batch_size\": 32,         # prompts per batch\n    \"gradient_accumulation\": 4,\n}"
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "",
+    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
   },
   {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "Issues Encountered",
-    "text": "Issues Encountered\nOOM on long trajectories — multi-turn conversations with 15 turns × 8 group samples blows up memory. Current workaround: truncate to 10 turns max during training, evaluate on full 15.\nFHIR validation bottleneck — the FHIR server becomes the bottleneck when validating 8 parallel trajectories. Need to batch validation calls or run a local validator.\nReward normalization — raw rewards are in [0, 1] but the group baseline can push advantages to extreme values. Added reward clipping at ±3 std."
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Summary",
+    "text": "Summary\nIntroduces GRPO (Group Relative Policy Optimization) as a variant of PPO that avoids learning a separate value function. Instead of a critic, it estimates baselines from a group of sampled outputs for the same prompt. This dramatically simplifies the RL pipeline."
   },
   {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#todo",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#todo",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "TODO",
-    "text": "TODO\n\nProfile the FHIR validation bottleneck\nTry group sizes {4, 8, 16} to find the sweet spot\nSet up W&B logging for reward distributions per task type"
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Key Ideas",
+    "text": "Key Ideas\n\nNo critic needed — sample \\(G\\) completions per prompt, use the group mean reward as baseline. This removes an entire model from the training loop.\nRLVR (RL with Verifiable Rewards) — works best when you have binary/verifiable correctness signals (math proofs, code execution). Directly applicable to our clinical task verification setup.\nOutcome supervision vs process supervision — they show outcome-level rewards work surprisingly well when paired with GRPO, even without step-level annotations."
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Relevance to MedEnv",
+    "text": "Relevance to MedEnv\n\nOur FHIR action verification gives us exactly the kind of verifiable reward GRPO is designed for\nThe “no critic” property is huge for us — training a value function over clinical trajectories would be extremely expensive\nGroup sampling maps well to generating multiple clinical plans and rewarding the best ones"
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Critiques / Limitations",
+    "text": "Critiques / Limitations\n\nGroup size \\(G\\) is a key hyperparameter they don’t ablate thoroughly — matters a lot for sample efficiency\nUnclear how well this extends to very long trajectories (their math tasks are relatively short)\nThe verifiable reward assumption is strong; many clinical tasks have ambiguous correctness"
+  },
+  {
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Quotes to Remember",
+    "text": "Quotes to Remember\n\n(paraphrase) GRPO replaces the value model baseline with the group mean, reducing memory and compute by ~50% compared to PPO."
   },
   {
     "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html",
@@ -438,14 +459,14 @@
     "href": "about.html",
     "title": "About",
     "section": "",
-    "text": "I’m a Stanford CS BS/MS student, concentrating in AI. My research is at the intersection of reinforcement learning, large language models, and robot learning. More specifically, I am currently interested the following topics:\nRL sits in the middle of both of these interests: how can we develop powerful methods using reinforcement learning to (1) best leverage pre-trained representations and (2) adapt to new tasks in a robust and general manner? The core modeling work is the same across the two domains: just that the backbone is different.\nThis notebook serves as a public-facing log of experiments, paper notes, and technical deep dives from my ongoing work."
+    "text": "I’m a Stanford CS BS/MS student, concentrating in AI. My research is at the intersection of reinforcement learning, large language models, and robot learning. More specifically, I am currently interested the following topics:\nRL sits in the middle of both of these interests: how can we develop powerful methods using reinforcement learning to (1) best leverage pre-trained representations and (2) adapt to new tasks in a robust and general manner? The core modeling work is the same across the two domains: just that the backbone is different.\nFor a more detailed writeup, see my Research Interests Statement.\nThis notebook serves as a public-facing log of experiments, paper notes, and technical deep dives from my ongoing work."
   },
   {
     "objectID": "about.html#contact",
     "href": "about.html#contact",
     "title": "About",
     "section": "Contact",
-    "text": "Contact\nPlease feel free to reach out if you have any thoughts or are open to collaborating on these topics! I’ve always thought that the best medium for learning is through conversation–though perhaps we are entering an age where the conversations are with non-human intelligence it seems.\n\nGitHub: roikand\nEmail: rsikand at stanford.edu"
+    "text": "Contact\nPlease feel free to reach out if you have any thoughts or are open to collaborating on these topics! I’ve always thought that the best medium for learning is through conversation–though perhaps we are entering an age where the conversations are with non-human intelligence it seems.\n\nGitHub: roikand\nEmail: rsikand at stanford.edu\n\n*Note: a good bit of the content on this webpage is AI-generated. I often use AI tools to help me understand papers, concepts, and ideas and as a result, some of the content here and there is just a dump from a chat thread for safe keeping, with annotations."
   },
   {
     "objectID": "index.html",
@@ -466,63 +487,147 @@
     "href": "paper-notes/index.html",
     "title": "Paper Notes",
     "section": "",
-    "text": "Summaries, key takeaways, and critiques of papers I’m reading.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\nDate\nTitle\nCategories\nDescription\n\n\n\n\n\nNo matching items\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nTitle\n\n\n\nstatus\n\n\n\nCategories\n\n\n\nDescription\n\n\n\n\n\n\n\n\nMar 1, 2026\n\n\nLLMs Can Learn to Reason Via Off-Policy RL (OAPL)\n\n\n \n\n\nrl, llm, reading\n\n\nOptimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.\n\n\n\n\n\n\nFeb 26, 2026\n\n\nDeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)\n\n\n \n\n\nrl, llm, reading\n\n\nNotes on Group Relative Policy Optimization and its applicability to clinical agent training.\n\n\n\n\n\n\nNo matching items"
+    "text": "Summaries, key takeaways, and critiques of papers I’m reading.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\nDate\nTitle\nCategories\nDescription\n\n\n\n\n\nNo matching items\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nTitle\n\n\n\nstatus\n\n\n\nCategories\n\n\n\nDescription\n\n\n\n\n\n\n\n\nMar 1, 2026\n\n\nDreamZero: World Action Models are Zero-shot Policies\n\n\n \n\n\nrobotics, foundation-models, world-models, reading\n\n\n14B WAM built on pretrained video diffusion that jointly predicts video and actions, enabling zero-shot generalization, heterogeneous data learning, and cross-embodiment transfer.\n\n\n\n\n\n\nMar 1, 2026\n\n\nLLMs Can Learn to Reason Via Off-Policy RL (OAPL)\n\n\n \n\n\nrl, llm, reading\n\n\nOptimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.\n\n\n\n\n\n\nFeb 26, 2026\n\n\nDeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)\n\n\n \n\n\nrl, llm, reading\n\n\nNotes on Group Relative Policy Optimization and its applicability to clinical agent training.\n\n\n\n\n\n\nNo matching items"
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
     "section": "",
-    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
+    "text": "Authors: Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al. (NVIDIA)\nLink: arXiv | Project | GitHub\nRead date: 2026-03-01"
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#paper-info",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#paper-info",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
     "section": "",
-    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
+    "text": "Authors: Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al. (NVIDIA)\nLink: arXiv | Project | GitHub\nRead date: 2026-03-01"
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#summary",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#summary",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
     "section": "Summary",
-    "text": "Summary\nIntroduces GRPO (Group Relative Policy Optimization) as a variant of PPO that avoids learning a separate value function. Instead of a critic, it estimates baselines from a group of sampled outputs for the same prompt. This dramatically simplifies the RL pipeline."
+    "text": "Summary\nVLAs (Vision-Language-Action models) generalize well to new objects and semantics but struggle with novel physical motions and environments—they lack spatiotemporal priors from image-text pretraining. DreamZero introduces a World Action Model (WAM) built on a pretrained 14B autoregressive video diffusion backbone. By jointly predicting future video frames and actions, DreamZero learns physical dynamics via an inverse-dynamics formulation: align motor commands with predicted visual futures. This shifts action learning from dense state-action imitation to world-model-guided control. Key outcomes: &gt;2× improvement over SOTA VLAs on environment/task generalization, effective learning from diverse heterogeneous robot data (no repetitive demos), real-time control at 7Hz via 38× inference speedup, and two forms of cross-embodiment transfer—video-only demonstrations (+42% with 10–20 min) and few-shot embodiment adaptation (30 min play data to transfer AgiBot G1 → YAM)."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#key-ideas",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#key-ideas",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
     "section": "Key Ideas",
-    "text": "Key Ideas\n\nNo critic needed — sample \\(G\\) completions per prompt, use the group mean reward as baseline. This removes an entire model from the training loop.\nRLVR (RL with Verifiable Rewards) — works best when you have binary/verifiable correctness signals (math proofs, code execution). Directly applicable to our clinical task verification setup.\nOutcome supervision vs process supervision — they show outcome-level rewards work surprisingly well when paired with GRPO, even without step-level annotations."
+    "text": "Key Ideas\n\nVLAs lack spatiotemporal priors — VLM backbones use static image-text; VLAs fail at novel skills (e.g. “untie shoelace”) not in robot data. Video diffusion encodes how the world evolves.\nJoint video-action = inverse dynamics — DreamZero decomposes as \\(\\pi(\\mathbf{o}_{l:l+H},\\mathbf{a}_{l:l+H}) = \\pi(\\mathbf{o}|\\text{context})\\,\\pi(\\mathbf{a}|\\mathbf{o},\\text{context})\\). Video prediction is implicit visual planning; actions follow predicted futures.\nDiverse data &gt; repetitive demos — Heterogeneous trajectories outperform same-hours multi-task repetitive data. Generalist policies don’t need many demos per task.\nAutoregressive + KV-cache reset — After each action chunk, replace predicted frames with ground-truth observations in KV cache to prevent error accumulation; keeps native frame rate for precise video-action alignment.\nPolicy quality ∝ video quality — Larger pretrained video models → better video predictions → better action execution. Improving robotics reduces to improving video generation.\nCross-embodiment transfer — Video-only from humans or other robots (no actions) improves target robot by &gt;42% with 10–20 min. Few-shot adaptation: 30 min play on new embodiment preserves zero-shot generalization."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "Relevance to MedEnv",
-    "text": "Relevance to MedEnv\n\nOur FHIR action verification gives us exactly the kind of verifiable reward GRPO is designed for\nThe “no critic” property is huge for us — training a value function over clinical trajectories would be extremely expensive\nGroup sampling maps well to generating multiple clinical plans and rewarding the best ones"
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#method",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#method",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Method",
+    "text": "Method\n\nArchitecture: 14B autoregressive DiT (flow matching) on pretrained video diffusion (Team Wan 2025). Inputs: visual context (VAE), language (text encoder), proprioception (state encoder). Joint video + action prediction via separate decoders; minimal added parameters.\nFormulation: Chunk-wise autoregressive prediction. Each chunk: \\(K\\) latent frames, horizon \\(H\\). Joint flow-matching objective over video latents \\(\\mathbf{z}_t\\) and normalized actions \\(\\mathbf{a}_t\\). Teacher forcing: denoise chunk \\(k\\) conditioned on clean chunks \\(1..k{-}1\\).\nTraining objective (Eq. 3): \\(\\mathcal{L} = \\mathbb{E}[\\sum_k w(t_k) \\| \\mathbf{u}_\\theta([\\mathbf{z}_{t_k}^k,\\mathbf{a}_{t_k}^k]; \\mathcal{C}_k, \\mathbf{c}, \\mathbf{q}_k, t_k) - \\mathbf{v}^k \\|^2]\\), with velocity \\(\\mathbf{v}^k = [\\mathbf{z}_1^k,\\mathbf{a}_1^k] - [\\mathbf{z}_0^k,\\mathbf{a}_0^k]\\).\nShared timestep for video and action (unlike some WAMs) for faster convergence.\nInference optimizations: DreamZero-Flash (decoupled denoising schedules), system-level parallelism/caching, quantization, CUDA tuning → 38× speedup, 7Hz closed-loop."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "Critiques / Limitations",
-    "text": "Critiques / Limitations\n\nGroup size \\(G\\) is a key hyperparameter they don’t ablate thoroughly — matters a lot for sample efficiency\nUnclear how well this extends to very long trajectories (their math tasks are relatively short)\nThe verifiable reward assumption is strong; many clinical tasks have ambiguous correctness"
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#results",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#results",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Results",
+    "text": "Results\n\nEnvironment & task generalization: &gt;2× average task progress vs SOTA pretrained VLAs (RoboArena, PolaRiS). Retains +10% after task-specific post-training.\nReal-time control: 7Hz action chunk generation on 14B model via 38× inference speedup.\nVideo-only cross-embodiment: Human (12 min) or YAM robot (20 min) video demos → +42% relative improvement on AgiBot G1 unseen tasks.\nFew-shot embodiment adaptation: Pretrained on AgiBot G1, adapt to YAM with 30 min play data; retains zero-shot generalization.\nData: ~500 hours real-world; shows non-trivial Genie Sim 3.0 (100 tasks) without sim training."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "Quotes to Remember",
-    "text": "Quotes to Remember\n\n(paraphrase) GRPO replaces the value model baseline with the group mean, reducing memory and compute by ~50% compared to PPO."
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#strengths",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#strengths",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Strengths",
+    "text": "Strengths\n\nStrong empirical gains on generalization; breaks VLA ceiling for novel skills and environments.\nData efficiency: diverse heterogeneous data suffices; no need for repeated demonstrations per task.\nNovel cross-embodiment results: video-only transfer and 30-min few-shot adaptation are striking.\nReal-time deployable (7Hz) despite 14B diffusion model—important system contribution.\nOpen-source: weights, inference code, benchmarks (RoboArena, PolaRiS, Genie Sim 3.0).\nClean formulation: policy quality tied to video quality; clear research direction."
   },
   {
-    "objectID": "notes/index.html",
-    "href": "notes/index.html",
-    "title": "Notes",
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#weaknesses-limitations",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#weaknesses-limitations",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Weaknesses / Limitations",
+    "text": "Weaknesses / Limitations\n\nSingle embodiment focus (AgiBot G1, YAM); broader cross-embodiment scaling not shown.\n500 hours of real data still nontrivial; cost of data collection unclear.\nVideo diffusion backbone dependency; scaling/generalization may plateau with video model quality.\nLimited comparison to other WAMs (Kim et al., Liang et al., Pai et al.) in main text; ablations could be deeper.\n7Hz is usable but not high-frequency; some manipulation may need higher rates."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#relevance-to-my-work",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#relevance-to-my-work",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Relevance to My Work",
+    "text": "Relevance to My Work\nHow does this connect to MedEnv, GRPO, or other active projects?\n\nWorld models for RL/planning: If MedEnv or similar settings involve sequential decision-making, WAMs offer a different backbone than pure policy nets—video as implicit planner, inverse dynamics for actions. Could inform hierarchical or model-based RL.\nData efficiency: DreamZero’s diverse-data story (vs repeated demos) parallels sample-efficiency concerns in RL; lessons may transfer to how we structure demonstrations or play data.\nCross-domain transfer: Video-only and few-shot adaptation could inspire transfer setups in non-robotics domains (e.g. sim→real, domain A→domain B) if we have video-like sequential observations.\nFoundation models for control: Contrast with language/LLM-based control; video diffusion as alternative pretrained prior for embodied AI."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#key-takeaways",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#key-takeaways",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Key Takeaways",
+    "text": "Key Takeaways\n\nWAMs built on video diffusion beat VLAs on motion/skill generalization by inheriting spatiotemporal priors; joint video-action prediction = inverse dynamics.\nDiverse heterogeneous robot data outperforms repetitive demos; generalist policies don’t require many demos per task.\nCross-embodiment transfer is surprisingly efficient: video-only (10–20 min) and 30-min few-shot adaptation both work.\nPolicy performance is tied to video generation quality; improving robotics = improving video models.\n38× inference speedup (decoupled schedules, caching, quantization) makes 14B diffusion viable for 7Hz real-time control."
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html",
+    "title": "GRPO Training Pipeline Setup Notes",
     "section": "",
-    "text": "Technical notes, experiment logs, debugging journals, and everything else.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Note\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nNote\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nGRPO Training Pipeline Setup Notes\n\n\nrl, medenv, infra\n\n\nTechnical setup notes for the GRPO training pipeline on MedEnv tasks.\n\n\n\n\n\n\nNo matching items"
+    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#environment",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#environment",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "",
+    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "Training Config",
+    "text": "Training Config\ntraining_config = {\n    \"group_size\": 8,          # completions per prompt\n    \"learning_rate\": 1e-6,\n    \"kl_coeff\": 0.05,\n    \"max_turns\": 15,          # max conversation turns per episode\n    \"batch_size\": 32,         # prompts per batch\n    \"gradient_accumulation\": 4,\n}"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "Issues Encountered",
+    "text": "Issues Encountered\nOOM on long trajectories — multi-turn conversations with 15 turns × 8 group samples blows up memory. Current workaround: truncate to 10 turns max during training, evaluate on full 15.\nFHIR validation bottleneck — the FHIR server becomes the bottleneck when validating 8 parallel trajectories. Need to batch validation calls or run a local validator.\nReward normalization — raw rewards are in [0, 1] but the group baseline can push advantages to extreme values. Added reward clipping at ±3 std."
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#todo",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#todo",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "TODO",
+    "text": "TODO\n\nProfile the FHIR validation bottleneck\nTry group sizes {4, 8, 16} to find the sweet spot\nSet up W&B logging for reward distributions per task type"
+  },
+  {
+    "objectID": "research-interests/index.html",
+    "href": "research-interests/index.html",
+    "title": "Research Interests",
+    "section": "",
+    "text": "My research sits at the intersection of reinforcement learning, large language models, and robot learning. Below is a more detailed account of the specific directions I am pursuing and the questions that drive my work."
+  },
+  {
+    "objectID": "research-interests/index.html#rl-post-training-for-language-models",
+    "href": "research-interests/index.html#rl-post-training-for-language-models",
+    "title": "Research Interests",
+    "section": "RL Post-Training for Language Models",
+    "text": "RL Post-Training for Language Models\nA central theme of my research is understanding how reinforcement learning can be used after supervised pre-training to unlock new capabilities in large language models. Recent work has shown that RL-based post-training—such as RLHF [1] and RLVR [2]—can substantially improve reasoning, instruction following, and alignment. I am particularly interested in:\n\nSelf-distillation and self-play: can models improve by training on their own outputs, bootstrapping capability without new human data? This connects to ideas from expert iteration [3] and self-play in games [4].\nReward modeling and reward hacking: how do we design reward signals that remain faithful proxies for human intent as models become more capable? The problem of reward hacking [5] is a key bottleneck.\nContinual RL post-training: rather than a single RL fine-tuning phase, can we develop curricula that iteratively refine models over time, akin to continual learning [6]?"
+  },
+  {
+    "objectID": "research-interests/index.html#robot-learning-and-visuomotor-policies",
+    "href": "research-interests/index.html#robot-learning-and-visuomotor-policies",
+    "title": "Research Interests",
+    "section": "Robot Learning and Visuomotor Policies",
+    "text": "Robot Learning and Visuomotor Policies\nThe second pillar of my work concerns learning sensorimotor policies for robotic manipulation. Foundation models pre-trained on internet-scale data provide rich representations, but bridging the gap to physical action remains an open challenge. I am exploring:\n\nVision-language-action models (VLAs): architectures that map visual observations and language instructions directly to robot actions [7], and how to fine-tune them efficiently for new tasks.\nOn-policy RL for robotics: methods like PPO [8] and GRPO [2] applied in simulation and on real hardware, with a focus on sample efficiency and sim-to-real transfer.\nWorld models and planning: learning predictive models of environment dynamics [9] that enable model-based planning and reduce the need for costly real-world interaction."
+  },
+  {
+    "objectID": "research-interests/index.html#unifying-theme",
+    "href": "research-interests/index.html#unifying-theme",
+    "title": "Research Interests",
+    "section": "Unifying Theme",
+    "text": "Unifying Theme\nRL is the connective tissue across these interests. Whether the “backbone” is a language model or a visuomotor policy, the core algorithmic questions are shared: how to define good reward signals, how to explore efficiently, and how to leverage pre-trained representations for downstream adaptation. I believe progress on these fronts will be mutually reinforcing—advances in RL post-training for LLMs will inform robot learning, and vice versa."
+  },
+  {
+    "objectID": "research-interests/index.html#references",
+    "href": "research-interests/index.html#references",
+    "title": "Research Interests",
+    "section": "References",
+    "text": "References\n\n\n[1] L. Ouyang et al., “Training language models to follow instructions with human feedback,” Advances in Neural Information Processing Systems, vol. 35, pp. 27730–27744, 2022.\n\n\n[2] Z. Shao et al., “DeepSeekMath: Pushing the limits of mathematical reasoning in open language models,” arXiv preprint arXiv:2402.03300, 2024.\n\n\n[3] T. Anthony, Z. Tian, and D. Barber, “Thinking fast and slow with deep learning and tree search,” in Advances in neural information processing systems, 2017.\n\n\n[4] D. Silver et al., “Mastering the game of Go without human knowledge,” Nature, vol. 550, no. 7676, pp. 354–359, 2017.\n\n\n[5] J. Skalse, N. Howe, D. Krasheninnikov, and D. Krueger, “Defining and characterizing reward hacking,” Advances in Neural Information Processing Systems, vol. 35, pp. 20460–20471, 2022.\n\n\n[6] J. Kirkpatrick et al., “Overcoming catastrophic forgetting in neural networks,” Proceedings of the National Academy of Sciences, vol. 114, no. 13, pp. 3521–3526, 2017.\n\n\n[7] A. Brohan et al., “RT-2: Vision-language-action models transfer web knowledge to robotic control,” arXiv preprint arXiv:2307.15818, 2023.\n\n\n[8] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Proximal policy optimization algorithms,” arXiv preprint arXiv:1707.06347, 2017.\n\n\n[9] D. Hafner, J. Pasukonis, J. Ba, and T. Lillicrap, “Mastering diverse domains through world models,” arXiv preprint arXiv:2301.04104, 2023."
   },
   {
     "objectID": "ideas/2026-03-01-vlaf/vlaf-contrastive.html",

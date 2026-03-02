@@ -1,15 +1,16 @@
 [
   {
-    "listing": "/paper-notes/index.html",
-    "items": [
-      "/paper-notes/2026-03-01-llm-off-policy/index.html",
-      "/paper-notes/2026-02-26-deepseekmath-grpo/index.html"
-    ]
-  },
-  {
     "listing": "/notes/index.html",
     "items": [
       "/notes/2026-02-26-grpo-training-setup/index.html"
+    ]
+  },
+  {
+    "listing": "/paper-notes/index.html",
+    "items": [
+      "/paper-notes/2026-03-01-dreamzero/index.html",
+      "/paper-notes/2026-03-01-llm-off-policy/index.html",
+      "/paper-notes/2026-02-26-deepseekmath-grpo/index.html"
     ]
   },
   {

@@ -6,10 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-02-26">
-<meta name="description" content="Co-evolve a critic alongside the policy to detect and mitigate reward hacking online">
+<meta name="dcterms.date" content="2026-03-01">
+<meta name="description" content="14B WAM built on pretrained video diffusion that jointly predicts video and actions, enabling zero-shot generalization, heterogeneous data learning, and cross-embodiment transfer.">
 
-<title>Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD) – ML Research Notebook</title>
+<title>DreamZero: World Action Models are Zero-shot Policies – ML Research Notebook</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -376,15 +376,15 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#problem" id="toc-problem" class="nav-link active" data-scroll-target="#problem">Problem</a></li>
-  <li><a href="#approach-adversarial-co-training" id="toc-approach-adversarial-co-training" class="nav-link" data-scroll-target="#approach-adversarial-co-training">Approach: Adversarial Co-Training</a></li>
-  <li><a href="#the-label-problem" id="toc-the-label-problem" class="nav-link" data-scroll-target="#the-label-problem">The Label Problem</a>
-  <ul class="collapse">
-  <li><a href="#method-1-llm-judge-as-online-pseudolabeler" id="toc-method-1-llm-judge-as-online-pseudolabeler" class="nav-link" data-scroll-target="#method-1-llm-judge-as-online-pseudolabeler">Method 1: LLM Judge as Online Pseudolabeler</a></li>
-  <li><a href="#method-2-sdrh-ema-self-distillation-with-exponential-moving-average" id="toc-method-2-sdrh-ema-self-distillation-with-exponential-moving-average" class="nav-link" data-scroll-target="#method-2-sdrh-ema-self-distillation-with-exponential-moving-average">Method 2: SDRH-EMA (Self-Distillation with Exponential Moving Average)</a></li>
-  <li><a href="#method-3-sdrh-prompt-self-distillation-with-inoculation-prompts" id="toc-method-3-sdrh-prompt-self-distillation-with-inoculation-prompts" class="nav-link" data-scroll-target="#method-3-sdrh-prompt-self-distillation-with-inoculation-prompts">Method 3: SDRH-Prompt (Self-Distillation with Inoculation Prompts)</a></li>
-  </ul></li>
-  <li><a href="#experimental-setup" id="toc-experimental-setup" class="nav-link" data-scroll-target="#experimental-setup">Experimental Setup</a></li>
+  <li><a href="#paper-info" id="toc-paper-info" class="nav-link active" data-scroll-target="#paper-info">Paper Info</a></li>
+  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary">Summary</a></li>
+  <li><a href="#key-ideas" id="toc-key-ideas" class="nav-link" data-scroll-target="#key-ideas">Key Ideas</a></li>
+  <li><a href="#method" id="toc-method" class="nav-link" data-scroll-target="#method">Method</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a></li>
+  <li><a href="#strengths" id="toc-strengths" class="nav-link" data-scroll-target="#strengths">Strengths</a></li>
+  <li><a href="#weaknesses-limitations" id="toc-weaknesses-limitations" class="nav-link" data-scroll-target="#weaknesses-limitations">Weaknesses / Limitations</a></li>
+  <li><a href="#relevance-to-my-work" id="toc-relevance-to-my-work" class="nav-link" data-scroll-target="#relevance-to-my-work">Relevance to My Work</a></li>
+  <li><a href="#key-takeaways" id="toc-key-takeaways" class="nav-link" data-scroll-target="#key-takeaways">Key Takeaways</a></li>
   </ul>
 <div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
     </div>
@@ -394,15 +394,18 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<div class="quarto-title-block"><div><h1 class="title">Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+<div class="quarto-title-block"><div><h1 class="title">DreamZero: World Action Models are Zero-shot Policies</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
   <div class="quarto-categories">
-    <div class="quarto-category">rl</div>
+    <div class="quarto-category">robotics</div>
+    <div class="quarto-category">foundation-models</div>
+    <div class="quarto-category">world-models</div>
+    <div class="quarto-category">reading</div>
   </div>
   </div>
 
 <div>
   <div class="description">
-    Co-evolve a critic alongside the policy to detect and mitigate reward hacking online
+    14B WAM built on pretrained video diffusion that jointly predicts video and actions, enabling zero-shot generalization, heterogeneous data learning, and cross-embodiment transfer.
   </div>
 </div>
 
@@ -413,7 +416,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">February 26, 2026</p>
+      <p class="date">March 1, 2026</p>
     </div>
   </div>
   
@@ -425,55 +428,89 @@ window.Quarto = {
 </header>
 
 
-<section id="problem" class="level2">
-<h2 class="anchored" data-anchor-id="problem">Problem</h2>
-<p>Let <span class="math inline">\(\pi_\theta\)</span> be a policy (LLM) trained via reinforcement learning on coding tasks. Given a prompt <span class="math inline">\(s\)</span>, the policy generates a solution <span class="math inline">\(a \sim \pi_\theta(\cdot \mid s)\)</span>, and a reward function <span class="math inline">\(R(s, a)\)</span> assigns reward based on test-case correctness. Reward hacking occurs when the model exploits vulnerabilities in the evaluation environment — e.g., redefining <code>run_tests()</code> — to receive high reward without solving the task.</p>
-<p>The standard approach is to train a static monitor <span class="math inline">\(M_\phi : (s, a) \to [0, 1]\)</span> that predicts the probability a response contains reward hacking. Once trained, <span class="math inline">\(M_\phi\)</span> is frozen. As <span class="math inline">\(\pi_\theta\)</span> evolves during RL, the distribution of <span class="math inline">\((s, a)\)</span> pairs shifts, and the model learns to produce outputs that evade <span class="math inline">\(M_\phi\)</span>. Empirically, probe accuracy degrades by up to 16 percentage points as models learn evasion strategies such as extending response length and adding unfaithful code comments (Ariaw et al., 2025). This creates an <strong>evasion gap</strong> between the monitor’s fixed decision boundary and the generator’s evolving output distribution.</p>
-<p>The core requirement is clear: the detection mechanism must <strong>adapt online</strong> alongside the policy to avoid being exploited.</p>
+<section id="paper-info" class="level2">
+<h2 class="anchored" data-anchor-id="paper-info">Paper Info</h2>
+<ul>
+<li><strong>Authors:</strong> Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al.&nbsp;(NVIDIA)</li>
+<li><strong>Link:</strong> <a href="https://arxiv.org/abs/2602.15922">arXiv</a> | <a href="https://dreamzero0.github.io">Project</a> | <a href="https://github.com/dreamzero0/dreamzero">GitHub</a></li>
+<li><strong>Read date:</strong> 2026-03-01</li>
+</ul>
 </section>
-<section id="approach-adversarial-co-training" class="level2">
-<h2 class="anchored" data-anchor-id="approach-adversarial-co-training">Approach: Adversarial Co-Training</h2>
-<p>We frame detection as a <strong>two-player game</strong> between a generator <span class="math inline">\(\pi_\theta\)</span> and a critic <span class="math inline">\(C_\psi\)</span> that co-evolve during training:</p>
-<p><span class="math display">\[\text{Critic:} \quad \max_\psi \; \mathbb{E}_{s, a \sim \pi_\theta} \left[ y^* \log C_\psi(s, a) + (1 - y^*) \log(1 - C_\psi(s, a)) \right]\]</span></p>
-<p><span class="math display">\[\text{Generator:} \quad \max_\theta \; \mathbb{E}_{s, a \sim \pi_\theta} \left[ R_{\text{task}}(s, a) - \lambda \cdot C_\psi(s, a) \right]\]</span></p>
-<p>where <span class="math inline">\(C_\psi(s, a) \in [0, 1]\)</span> is the critic’s predicted hacking probability and <span class="math inline">\(y^*\)</span> is the hack label for rollout <span class="math inline">\((s, a)\)</span>. The critic trains to identify hacking in the generator’s current rollouts; the generator maximizes task reward while minimizing the critic’s predicted hacking probability. Because <span class="math inline">\(C_\psi\)</span> is updated at each training step on the current policy’s outputs, it tracks distributional shift as the generator evolves — closing the evasion gap by design.</p>
+<section id="summary" class="level2">
+<h2 class="anchored" data-anchor-id="summary">Summary</h2>
+<p>VLAs (Vision-Language-Action models) generalize well to new objects and semantics but struggle with novel physical motions and environments—they lack spatiotemporal priors from image-text pretraining. DreamZero introduces a <strong>World Action Model (WAM)</strong> built on a pretrained 14B autoregressive video diffusion backbone. By jointly predicting future video frames and actions, DreamZero learns physical dynamics via an inverse-dynamics formulation: align motor commands with predicted visual futures. This shifts action learning from dense state-action imitation to world-model-guided control. Key outcomes: &gt;2× improvement over SOTA VLAs on environment/task generalization, effective learning from diverse heterogeneous robot data (no repetitive demos), real-time control at 7Hz via 38× inference speedup, and two forms of cross-embodiment transfer—video-only demonstrations (+42% with 10–20 min) and few-shot embodiment adaptation (30 min play data to transfer AgiBot G1 → YAM).</p>
 </section>
-<section id="the-label-problem" class="level2">
-<h2 class="anchored" data-anchor-id="the-label-problem">The Label Problem</h2>
-<p>The adversarial formulation above requires <strong>hack labels <span class="math inline">\(y^*\)</span> at every training step</strong>. This creates a fundamental challenge: if we had a perfect oracle for <span class="math inline">\(y^*\)</span>, we could simply penalize hacking directly and would not need the critic at all. Prior supervised approaches face a <strong>circular dependency</strong> — requiring ground-truth hack labels to train a detector defeats the purpose of automated detection. The central question becomes: <em>how do we obtain <span class="math inline">\(y^*\)</span> online without an oracle?</em></p>
-<p>We propose and compare multiple strategies for resolving this.</p>
-<section id="method-1-llm-judge-as-online-pseudolabeler" class="level3">
-<h3 class="anchored" data-anchor-id="method-1-llm-judge-as-online-pseudolabeler">Method 1: LLM Judge as Online Pseudolabeler</h3>
-<p>An LLM judge (e.g., Claude Haiku) is prompted at each training step to classify whether each rollout <span class="math inline">\((s, a)\)</span> contains reward hacking, producing pseudolabels <span class="math inline">\(\hat{y}\)</span>:</p>
-<p><span class="math display">\[\hat{y}_i = \text{LLMJudge}(s, a_i) \in \{0, 1\}\]</span></p>
-<p>These pseudolabels replace <span class="math inline">\(y^*\)</span> in the critic objective. The critic and policy co-evolve online: the judge provides noisy but adaptive supervision, and the critic learns to smooth and generalize from these signals. This avoids the circular dependency because the judge operates on the <em>content</em> of the rollout (identifying suspicious patterns like test redefinition) rather than requiring execution-level ground truth. The tradeoff is that LLM judges have limited accuracy — particularly on long responses and unfaithful code comments — and introduce inference cost at every training step.</p>
+<section id="key-ideas" class="level2">
+<h2 class="anchored" data-anchor-id="key-ideas">Key Ideas</h2>
+<ol type="1">
+<li><strong>VLAs lack spatiotemporal priors</strong> — VLM backbones use static image-text; VLAs fail at novel skills (e.g.&nbsp;“untie shoelace”) not in robot data. Video diffusion encodes how the world evolves.</li>
+<li><strong>Joint video-action = inverse dynamics</strong> — DreamZero decomposes as <span class="math inline">\(\pi(\mathbf{o}_{l:l+H},\mathbf{a}_{l:l+H}) = \pi(\mathbf{o}|\text{context})\,\pi(\mathbf{a}|\mathbf{o},\text{context})\)</span>. Video prediction is implicit visual planning; actions follow predicted futures.</li>
+<li><strong>Diverse data &gt; repetitive demos</strong> — Heterogeneous trajectories outperform same-hours multi-task repetitive data. Generalist policies don’t need many demos per task.</li>
+<li><strong>Autoregressive + KV-cache reset</strong> — After each action chunk, replace predicted frames with ground-truth observations in KV cache to prevent error accumulation; keeps native frame rate for precise video-action alignment.</li>
+<li><strong>Policy quality ∝ video quality</strong> — Larger pretrained video models → better video predictions → better action execution. Improving robotics reduces to improving video generation.</li>
+<li><strong>Cross-embodiment transfer</strong> — Video-only from humans or other robots (no actions) improves target robot by &gt;42% with 10–20 min. Few-shot adaptation: 30 min play on new embodiment preserves zero-shot generalization.</li>
+</ol>
 </section>
-<section id="method-2-sdrh-ema-self-distillation-with-exponential-moving-average" class="level3">
-<h3 class="anchored" data-anchor-id="method-2-sdrh-ema-self-distillation-with-exponential-moving-average">Method 2: SDRH-EMA (Self-Distillation with Exponential Moving Average)</h3>
-<p>Rather than sourcing external labels, we eliminate the need for <span class="math inline">\(y^*\)</span> entirely by reframing detection as a <strong>self-distillation</strong> problem. The policy <span class="math inline">\(\pi_\theta\)</span> is compared against an exponential moving average of its own past checkpoints:</p>
-<p><span class="math display">\[\pi_{\text{EMA}} \leftarrow \rho \cdot \pi_{\text{EMA}} + (1 - \rho) \cdot \pi_\theta\]</span></p>
-<p>For each rollout <span class="math inline">\(a_i\)</span> given prompt <span class="math inline">\(s\)</span>, we compute the per-token KL divergence:</p>
-<p><span class="math display">\[d_i = D_{\text{KL}}\!\left(\pi_\theta(\cdot \mid s, a_i^{&lt;t}) \;\|\; \pi_{\text{EMA}}(\cdot \mid s, a_i^{&lt;t})\right)\]</span></p>
-<p>averaged across token positions <span class="math inline">\(t\)</span>. Honest capability improvements are gradual — the EMA tracks them closely, yielding low <span class="math inline">\(d_i\)</span>. Hacking strategies emerge as sharp distributional shifts, producing anomalously high <span class="math inline">\(d_i\)</span> on exploitative rollouts. The divergence <span class="math inline">\(d_i\)</span> serves as an <strong>unsupervised proxy</strong> for <span class="math inline">\(y^*\)</span>, replacing the critic entirely with selective advantage gating:</p>
-<p><span class="math display">\[\hat{A}_i^{\text{gated}} = \hat{A}_i \cdot g(d_i)\]</span></p>
-<p>where <span class="math inline">\(g(d_i) = \exp(-\gamma \cdot d_i)\)</span> (soft gating) or <span class="math inline">\(g(d_i) = \mathbf{1}[d_i &lt; \tau]\)</span> (hard gating / screening). The full objective augments GRPO:</p>
-<p><span class="math display">\[\mathcal{L}_{\text{SDRH}}(\theta) = -\mathbb{E}_{s, \{a_i\}} \left[ \frac{1}{G} \sum_{i=1}^{G} \min\!\left( \rho_i \hat{A}_i^{\text{gated}},\; \text{clip}(\rho_i, 1 \pm \epsilon)\hat{A}_i^{\text{gated}} \right) \right] + \lambda \cdot \mathcal{L}_{\text{SD}}(\theta)\]</span></p>
-<p>where <span class="math inline">\(\mathcal{L}_{\text{SD}}\)</span> is an optional auxiliary self-distillation loss with divergence-proportional weighting <span class="math inline">\(w(d_i) = d_i^\alpha\)</span>, applying stronger regularization on the most anomalous rollouts. SDRH-EMA is genuinely self-supervised: there is nothing specific to evade, and no external signal that creates a circular dependency.</p>
+<section id="method" class="level2">
+<h2 class="anchored" data-anchor-id="method">Method</h2>
+<ul>
+<li><strong>Architecture:</strong> 14B autoregressive DiT (flow matching) on pretrained video diffusion (Team Wan 2025). Inputs: visual context (VAE), language (text encoder), proprioception (state encoder). Joint video + action prediction via separate decoders; minimal added parameters.</li>
+<li><strong>Formulation:</strong> Chunk-wise autoregressive prediction. Each chunk: <span class="math inline">\(K\)</span> latent frames, horizon <span class="math inline">\(H\)</span>. Joint flow-matching objective over video latents <span class="math inline">\(\mathbf{z}_t\)</span> and normalized actions <span class="math inline">\(\mathbf{a}_t\)</span>. Teacher forcing: denoise chunk <span class="math inline">\(k\)</span> conditioned on clean chunks <span class="math inline">\(1..k{-}1\)</span>.</li>
+<li><strong>Training objective (Eq. 3):</strong> <span class="math inline">\(\mathcal{L} = \mathbb{E}[\sum_k w(t_k) \| \mathbf{u}_\theta([\mathbf{z}_{t_k}^k,\mathbf{a}_{t_k}^k]; \mathcal{C}_k, \mathbf{c}, \mathbf{q}_k, t_k) - \mathbf{v}^k \|^2]\)</span>, with velocity <span class="math inline">\(\mathbf{v}^k = [\mathbf{z}_1^k,\mathbf{a}_1^k] - [\mathbf{z}_0^k,\mathbf{a}_0^k]\)</span>.</li>
+<li><strong>Shared timestep</strong> for video and action (unlike some WAMs) for faster convergence.</li>
+<li><strong>Inference optimizations:</strong> DreamZero-Flash (decoupled denoising schedules), system-level parallelism/caching, quantization, CUDA tuning → 38× speedup, 7Hz closed-loop.</li>
+</ul>
 </section>
-<section id="method-3-sdrh-prompt-self-distillation-with-inoculation-prompts" class="level3">
-<h3 class="anchored" data-anchor-id="method-3-sdrh-prompt-self-distillation-with-inoculation-prompts">Method 3: SDRH-Prompt (Self-Distillation with Inoculation Prompts)</h3>
-<p>This variant uses <strong>inoculation prompts</strong> to create teacher–student divergence from a single set of weights. The student generates under standard conditions, <span class="math inline">\(y \sim \pi_\theta(\cdot \mid x)\)</span>, while the teacher is conditioned on a privileged honesty prompt <span class="math inline">\(c\)</span>: <span class="math inline">\(y' \sim \pi_\theta(\cdot \mid x, c)\)</span>. The per-token log-ratio</p>
-<p><span class="math display">\[A_t = \log \pi_\theta(y_t \mid x, c, y_{&lt;t}) - \log \pi_\theta(y_t \mid x, y_{&lt;t})\]</span></p>
-<p>serves as a hacking signal: when <span class="math inline">\(A_t \ll 0\)</span>, the student generates tokens the honest teacher would strongly avoid. The training objective augments GRPO with a KL penalty:</p>
-<p><span class="math display">\[
-\mathcal{L}(\theta) = \mathbb{E}_{x, y \sim \pi_\theta}\!\left[R_{\text{task}}(x, y)\right] - \lambda \;\mathbb{E}_{x, y \sim \pi_\theta}\!\left[\sum_{t=1}^{T} D_{\text{KL}}\!\left(\pi_\theta(\cdot \mid x, y_{&lt;t}) \;\|\; \text{sg}\!\left(\pi_\theta(\cdot \mid x, c, y_{&lt;t})\right)\right)\right]
-\]</span></p>
-<p>where <span class="math inline">\(\text{sg}(\cdot)\)</span> denotes stop-gradient on the teacher. SDRH-Prompt inherits a weakness: if the privileged context is too strong, it reduces to the circular dependency; if too weak, it may be evadable. We include it as a secondary comparison.</p>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<ul>
+<li><strong>Environment &amp; task generalization:</strong> &gt;2× average task progress vs SOTA pretrained VLAs (RoboArena, PolaRiS). Retains +10% after task-specific post-training.</li>
+<li><strong>Real-time control:</strong> 7Hz action chunk generation on 14B model via 38× inference speedup.</li>
+<li><strong>Video-only cross-embodiment:</strong> Human (12 min) or YAM robot (20 min) video demos → +42% relative improvement on AgiBot G1 unseen tasks.</li>
+<li><strong>Few-shot embodiment adaptation:</strong> Pretrained on AgiBot G1, adapt to YAM with 30 min play data; retains zero-shot generalization.</li>
+<li><strong>Data:</strong> ~500 hours real-world; shows non-trivial Genie Sim 3.0 (100 tasks) without sim training.</li>
+</ul>
 </section>
+<section id="strengths" class="level2">
+<h2 class="anchored" data-anchor-id="strengths">Strengths</h2>
+<ul>
+<li>Strong empirical gains on generalization; breaks VLA ceiling for novel skills and environments.</li>
+<li>Data efficiency: diverse heterogeneous data suffices; no need for repeated demonstrations per task.</li>
+<li>Novel cross-embodiment results: video-only transfer and 30-min few-shot adaptation are striking.</li>
+<li>Real-time deployable (7Hz) despite 14B diffusion model—important system contribution.</li>
+<li>Open-source: weights, inference code, benchmarks (RoboArena, PolaRiS, Genie Sim 3.0).</li>
+<li>Clean formulation: policy quality tied to video quality; clear research direction.</li>
+</ul>
 </section>
-<section id="experimental-setup" class="level2">
-<h2 class="anchored" data-anchor-id="experimental-setup">Experimental Setup</h2>
-<p>We use the <strong>Overwrite Tests</strong> environment from Ariaw et al.&nbsp;(2025) with <strong>Qwen3-4B</strong> trained via GRPO on 992 LeetCode medium/hard problems (113 test). Reward hacking emerges naturally without explicit prompting. Evaluation proceeds in three phases: (1) <strong>hypothesis validation</strong> — do the proposed signals (LLM pseudolabels, EMA divergence, prompt divergence) correlate with ground-truth hacking labels? (2) <strong>detection dynamics</strong> — do adaptive methods maintain detection accuracy where static probes degrade? (3) <strong>mitigation effectiveness</strong> — do the proposed methods reduce hack rates while preserving genuine coding performance?</p>
+<section id="weaknesses-limitations" class="level2">
+<h2 class="anchored" data-anchor-id="weaknesses-limitations">Weaknesses / Limitations</h2>
+<ul>
+<li>Single embodiment focus (AgiBot G1, YAM); broader cross-embodiment scaling not shown.</li>
+<li>500 hours of real data still nontrivial; cost of data collection unclear.</li>
+<li>Video diffusion backbone dependency; scaling/generalization may plateau with video model quality.</li>
+<li>Limited comparison to other WAMs (Kim et al., Liang et al., Pai et al.) in main text; ablations could be deeper.</li>
+<li>7Hz is usable but not high-frequency; some manipulation may need higher rates.</li>
+</ul>
+</section>
+<section id="relevance-to-my-work" class="level2">
+<h2 class="anchored" data-anchor-id="relevance-to-my-work">Relevance to My Work</h2>
+<p>How does this connect to MedEnv, GRPO, or other active projects?</p>
+<ul>
+<li><strong>World models for RL/planning:</strong> If MedEnv or similar settings involve sequential decision-making, WAMs offer a different backbone than pure policy nets—video as implicit planner, inverse dynamics for actions. Could inform hierarchical or model-based RL.</li>
+<li><strong>Data efficiency:</strong> DreamZero’s diverse-data story (vs repeated demos) parallels sample-efficiency concerns in RL; lessons may transfer to how we structure demonstrations or play data.</li>
+<li><strong>Cross-domain transfer:</strong> Video-only and few-shot adaptation could inspire transfer setups in non-robotics domains (e.g.&nbsp;sim→real, domain A→domain B) if we have video-like sequential observations.</li>
+<li><strong>Foundation models for control:</strong> Contrast with language/LLM-based control; video diffusion as alternative pretrained prior for embodied AI.</li>
+</ul>
+</section>
+<section id="key-takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="key-takeaways">Key Takeaways</h2>
+<ol type="1">
+<li>WAMs built on video diffusion beat VLAs on motion/skill generalization by inheriting spatiotemporal priors; joint video-action prediction = inverse dynamics.</li>
+<li>Diverse heterogeneous robot data outperforms repetitive demos; generalist policies don’t require many demos per task.</li>
+<li>Cross-embodiment transfer is surprisingly efficient: video-only (10–20 min) and 30-min few-shot adaptation both work.</li>
+<li>Policy performance is tied to video generation quality; improving robotics = improving video models.</li>
+<li>38× inference speedup (decoupled schedules, caching, quantization) makes 14B diffusion viable for 7Hz real-time control.</li>
+</ol>
 
 
 <!-- -->
@@ -945,84 +982,85 @@ window.Quarto = {
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Adversarial Co-Training for Online Reward Hacking Mitigation (ARHD)"</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Co-evolve a critic alongside the policy to detect and mitigate reward hacking online"</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-02-26"</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [rl]</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="an">status:</span><span class="co"> "exploring"  # seed | exploring | concrete | shelved</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## Problem</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "DreamZero: World Action Models are Zero-shot Policies"</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "14B WAM built on pretrained video diffusion that jointly predicts video and actions, enabling zero-shot generalization, heterogeneous data learning, and cross-embodiment transfer."</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-03-01"</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [robotics, foundation-models, world-models, reading]</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="an">paper:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">  authors: "Ye, Ge, Zheng, Gao, Yu, et al. (NVIDIA)"</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">  year: "2026"</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">  venue: "arXiv"</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">  url: "https://arxiv.org/abs/2602.15922"</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>Let $\pi_\theta$ be a policy (LLM) trained via reinforcement learning on coding tasks. Given a prompt $s$, the policy generates a solution $a \sim \pi_\theta(\cdot \mid s)$, and a reward function $R(s, a)$ assigns reward based on test-case correctness. Reward hacking occurs when the model exploits vulnerabilities in the evaluation environment — e.g., redefining <span class="in">`run_tests()`</span> — to receive high reward without solving the task.</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">## Paper Info</span></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>The standard approach is to train a static monitor $M_\phi : (s, a) \to <span class="co">[</span><span class="ot">0, 1</span><span class="co">]</span>$ that predicts the probability a response contains reward hacking. Once trained, $M_\phi$ is frozen. As $\pi_\theta$ evolves during RL, the distribution of $(s, a)$ pairs shifts, and the model learns to produce outputs that evade $M_\phi$. Empirically, probe accuracy degrades by up to 16 percentage points as models learn evasion strategies such as extending response length and adding unfaithful code comments (Ariaw et al., 2025). This creates an **evasion gap** between the monitor's fixed decision boundary and the generator's evolving output distribution.</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>The core requirement is clear: the detection mechanism must **adapt online** alongside the policy to avoid being exploited.</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Authors:** Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al. (NVIDIA)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Link:** <span class="co">[</span><span class="ot">arXiv</span><span class="co">](https://arxiv.org/abs/2602.15922)</span> | <span class="co">[</span><span class="ot">Project</span><span class="co">](https://dreamzero0.github.io)</span> | <span class="co">[</span><span class="ot">GitHub</span><span class="co">](https://github.com/dreamzero0/dreamzero)</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Read date:** 2026-03-01</span>
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Approach: Adversarial Co-Training</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Summary</span></span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>We frame detection as a **two-player game** between a generator $\pi_\theta$ and a critic $C_\psi$ that co-evolve during training:</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>VLAs (Vision-Language-Action models) generalize well to new objects and semantics but struggle with novel physical motions and environments—they lack spatiotemporal priors from image-text pretraining. DreamZero introduces a **World Action Model (WAM)** built on a pretrained 14B autoregressive video diffusion backbone. By jointly predicting future video frames and actions, DreamZero learns physical dynamics via an inverse-dynamics formulation: align motor commands with predicted visual futures. This shifts action learning from dense state-action imitation to world-model-guided control. Key outcomes: &gt;2× improvement over SOTA VLAs on environment/task generalization, effective learning from diverse heterogeneous robot data (no repetitive demos), real-time control at 7Hz via 38× inference speedup, and two forms of cross-embodiment transfer—video-only demonstrations (+42% with 10–20 min) and few-shot embodiment adaptation (30 min play data to transfer AgiBot G1 → YAM).</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>$$\text{Critic:} \quad \max_\psi \; \mathbb{E}_{s, a \sim \pi_\theta} \left[ y^* \log C_\psi(s, a) + (1 - y^*) \log(1 - C_\psi(s, a)) \right]$$</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Ideas</span></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>$$\text{Generator:} \quad \max_\theta \; \mathbb{E}_{s, a \sim \pi_\theta} \left[ R_{\text{task}}(s, a) - \lambda \cdot C_\psi(s, a) \right]$$</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>where $C_\psi(s, a) \in <span class="co">[</span><span class="ot">0, 1</span><span class="co">]</span>$ is the critic's predicted hacking probability and $y^*$ is the hack label for rollout $(s, a)$. The critic trains to identify hacking in the generator's current rollouts; the generator maximizes task reward while minimizing the critic's predicted hacking probability. Because $C_\psi$ is updated at each training step on the current policy's outputs, it tracks distributional shift as the generator evolves — closing the evasion gap by design.</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Label Problem</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>The adversarial formulation above requires **hack labels $y^*$ at every training step**. This creates a fundamental challenge: if we had a perfect oracle for $y^*$, we could simply penalize hacking directly and would not need the critic at all. Prior supervised approaches face a **circular dependency** — requiring ground-truth hack labels to train a detector defeats the purpose of automated detection. The central question becomes: *how do we obtain $y^*$ online without an oracle?*</span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>We propose and compare multiple strategies for resolving this.</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="fu">### Method 1: LLM Judge as Online Pseudolabeler</span></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>An LLM judge (e.g., Claude Haiku) is prompted at each training step to classify whether each rollout $(s, a)$ contains reward hacking, producing pseudolabels $\hat{y}$:</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>$$\hat{y}_i = \text{LLMJudge}(s, a_i) \in <span class="sc">\{</span>0, 1<span class="sc">\}</span>$$</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>These pseudolabels replace $y^*$ in the critic objective. The critic and policy co-evolve online: the judge provides noisy but adaptive supervision, and the critic learns to smooth and generalize from these signals. This avoids the circular dependency because the judge operates on the *content* of the rollout (identifying suspicious patterns like test redefinition) rather than requiring execution-level ground truth. The tradeoff is that LLM judges have limited accuracy — particularly on long responses and unfaithful code comments — and introduce inference cost at every training step.</span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="fu">### Method 2: SDRH-EMA (Self-Distillation with Exponential Moving Average)</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>Rather than sourcing external labels, we eliminate the need for $y^*$ entirely by reframing detection as a **self-distillation** problem. The policy $\pi_\theta$ is compared against an exponential moving average of its own past checkpoints:</span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>$$\pi_{\text{EMA}} \leftarrow \rho \cdot \pi_{\text{EMA}} + (1 - \rho) \cdot \pi_\theta$$</span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>For each rollout $a_i$ given prompt $s$, we compute the per-token KL divergence:</span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>$$d_i = D_{\text{KL}}<span class="sc">\!</span>\left(\pi_\theta(\cdot \mid s, a_i^{&lt;t}) \;<span class="sc">\|</span>\; \pi_{\text{EMA}}(\cdot \mid s, a_i^{&lt;t})\right)$$</span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>averaged across token positions $t$. Honest capability improvements are gradual — the EMA tracks them closely, yielding low $d_i$. Hacking strategies emerge as sharp distributional shifts, producing anomalously high $d_i$ on exploitative rollouts. The divergence $d_i$ serves as an **unsupervised proxy** for $y^*$, replacing the critic entirely with selective advantage gating:</span>
-<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>$$\hat{A}_i^{\text{gated}} = \hat{A}_i \cdot g(d_i)$$</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**VLAs lack spatiotemporal priors** — VLM backbones use static image-text; VLAs fail at novel skills (e.g. "untie shoelace") not in robot data. Video diffusion encodes how the world evolves.</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Joint video-action = inverse dynamics** — DreamZero decomposes as $\pi(\mathbf{o}_{l:l+H},\mathbf{a}_{l:l+H}) = \pi(\mathbf{o}|\text{context})\,\pi(\mathbf{a}|\mathbf{o},\text{context})$. Video prediction is implicit visual planning; actions follow predicted futures.</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Diverse data &gt; repetitive demos** — Heterogeneous trajectories outperform same-hours multi-task repetitive data. Generalist policies don't need many demos per task.</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Autoregressive + KV-cache reset** — After each action chunk, replace predicted frames with ground-truth observations in KV cache to prevent error accumulation; keeps native frame rate for precise video-action alignment.</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Policy quality ∝ video quality** — Larger pretrained video models → better video predictions → better action execution. Improving robotics reduces to improving video generation.</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Cross-embodiment transfer** — Video-only from humans or other robots (no actions) improves target robot by &gt;42% with 10–20 min. Few-shot adaptation: 30 min play on new embodiment preserves zero-shot generalization.</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Architecture:** 14B autoregressive DiT (flow matching) on pretrained video diffusion (Team Wan 2025). Inputs: visual context (VAE), language (text encoder), proprioception (state encoder). Joint video + action prediction via separate decoders; minimal added parameters.</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Formulation:** Chunk-wise autoregressive prediction. Each chunk: $K$ latent frames, horizon $H$. Joint flow-matching objective over video latents $\mathbf{z}_t$ and normalized actions $\mathbf{a}_t$. Teacher forcing: denoise chunk $k$ conditioned on clean chunks $1..k{-}1$.</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Training objective (Eq. 3):** $\mathcal{L} = \mathbb{E}<span class="co">[</span><span class="ot">\sum_k w(t_k) \| \mathbf{u}_\theta([\mathbf{z}_{t_k}^k,\mathbf{a}_{t_k}^k]; \mathcal{C}_k, \mathbf{c}, \mathbf{q}_k, t_k) - \mathbf{v}^k \|^2</span><span class="co">]</span>$, with velocity $\mathbf{v}^k = <span class="co">[</span><span class="ot">\mathbf{z}_1^k,\mathbf{a}_1^k</span><span class="co">]</span> - <span class="co">[</span><span class="ot">\mathbf{z}_0^k,\mathbf{a}_0^k</span><span class="co">]</span>$.</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Shared timestep** for video and action (unlike some WAMs) for faster convergence.</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Inference optimizations:** DreamZero-Flash (decoupled denoising schedules), system-level parallelism/caching, quantization, CUDA tuning → 38× speedup, 7Hz closed-loop.</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="fu">## Results</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Environment &amp; task generalization:** &gt;2× average task progress vs SOTA pretrained VLAs (RoboArena, PolaRiS). Retains +10% after task-specific post-training.</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Real-time control:** 7Hz action chunk generation on 14B model via 38× inference speedup.</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Video-only cross-embodiment:** Human (12 min) or YAM robot (20 min) video demos → +42% relative improvement on AgiBot G1 unseen tasks.</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Few-shot embodiment adaptation:** Pretrained on AgiBot G1, adapt to YAM with 30 min play data; retains zero-shot generalization.</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Data:** ~500 hours real-world; shows non-trivial Genie Sim 3.0 (100 tasks) without sim training.</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="fu">## Strengths</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Strong empirical gains on generalization; breaks VLA ceiling for novel skills and environments.</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Data efficiency: diverse heterogeneous data suffices; no need for repeated demonstrations per task.</span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Novel cross-embodiment results: video-only transfer and 30-min few-shot adaptation are striking.</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Real-time deployable (7Hz) despite 14B diffusion model—important system contribution.</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Open-source: weights, inference code, benchmarks (RoboArena, PolaRiS, Genie Sim 3.0).</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Clean formulation: policy quality tied to video quality; clear research direction.</span>
 <span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>where $g(d_i) = \exp(-\gamma \cdot d_i)$ (soft gating) or $g(d_i) = \mathbf{1}<span class="co">[</span><span class="ot">d_i &lt; \tau</span><span class="co">]</span>$ (hard gating / screening). The full objective augments GRPO:</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="fu">## Weaknesses / Limitations</span></span>
 <span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>$$\mathcal{L}_{\text{SDRH}}(\theta) = -\mathbb{E}_{s, \{a_i\}} \left[ \frac{1}{G} \sum_{i=1}^{G} \min\!\left( \rho_i \hat{A}_i^{\text{gated}},\; \text{clip}(\rho_i, 1 \pm \epsilon)\hat{A}_i^{\text{gated}} \right) \right] + \lambda \cdot \mathcal{L}_{\text{SD}}(\theta)$$</span>
-<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>where $\mathcal{L}_{\text{SD}}$ is an optional auxiliary self-distillation loss with divergence-proportional weighting $w(d_i) = d_i^\alpha$, applying stronger regularization on the most anomalous rollouts. SDRH-EMA is genuinely self-supervised: there is nothing specific to evade, and no external signal that creates a circular dependency.</span>
-<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="fu">### Method 3: SDRH-Prompt (Self-Distillation with Inoculation Prompts)</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Single embodiment focus (AgiBot G1, YAM); broader cross-embodiment scaling not shown.</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>500 hours of real data still nontrivial; cost of data collection unclear.</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Video diffusion backbone dependency; scaling/generalization may plateau with video model quality.</span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Limited comparison to other WAMs (Kim et al., Liang et al., Pai et al.) in main text; ablations could be deeper.</span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>7Hz is usable but not high-frequency; some manipulation may need higher rates.</span>
 <span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>This variant uses **inoculation prompts** to create teacher–student divergence from a single set of weights. The student generates under standard conditions, $y \sim \pi_\theta(\cdot \mid x)$, while the teacher is conditioned on a privileged honesty prompt $c$: $y' \sim \pi_\theta(\cdot \mid x, c)$. The per-token log-ratio</span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="fu">## Relevance to My Work</span></span>
 <span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>$$A_t = \log \pi_\theta(y_t \mid x, c, y_{&lt;t}) - \log \pi_\theta(y_t \mid x, y_{&lt;t})$$</span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>How does this connect to MedEnv, GRPO, or other active projects?</span>
 <span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>serves as a hacking signal: when $A_t \ll 0$, the student generates tokens the honest teacher would strongly avoid. The training objective augments GRPO with a KL penalty:</span>
-<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>\mathcal{L}(\theta) = \mathbb{E}_{x, y \sim \pi_\theta}\!\left[R_{\text{task}}(x, y)\right] - \lambda \;\mathbb{E}_{x, y \sim \pi_\theta}\!\left[\sum_{t=1}^{T} D_{\text{KL}}\!\left(\pi_\theta(\cdot \mid x, y_{&lt;t}) \;\|\; \text{sg}\!\left(\pi_\theta(\cdot \mid x, c, y_{&lt;t})\right)\right)\right]</span>
-<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>$$</span>
-<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>where $\text{sg}(\cdot)$ denotes stop-gradient on the teacher. SDRH-Prompt inherits a weakness: if the privileged context is too strong, it reduces to the circular dependency; if too weak, it may be evadable. We include it as a secondary comparison.</span>
-<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a><span class="fu">## Experimental Setup</span></span>
-<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>We use the **Overwrite Tests** environment from Ariaw et al. (2025) with **Qwen3-4B** trained via GRPO on 992 LeetCode medium/hard problems (113 test). Reward hacking emerges naturally without explicit prompting. Evaluation proceeds in three phases: (1) **hypothesis validation** — do the proposed signals (LLM pseudolabels, EMA divergence, prompt divergence) correlate with ground-truth hacking labels? (2) **detection dynamics** — do adaptive methods maintain detection accuracy where static probes degrade? (3) **mitigation effectiveness** — do the proposed methods reduce hack rates while preserving genuine coding performance? </span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**World models for RL/planning:** If MedEnv or similar settings involve sequential decision-making, WAMs offer a different backbone than pure policy nets—video as implicit planner, inverse dynamics for actions. Could inform hierarchical or model-based RL.</span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Data efficiency:** DreamZero’s diverse-data story (vs repeated demos) parallels sample-efficiency concerns in RL; lessons may transfer to how we structure demonstrations or play data.</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Cross-domain transfer:** Video-only and few-shot adaptation could inspire transfer setups in non-robotics domains (e.g. sim→real, domain A→domain B) if we have video-like sequential observations.</span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Foundation models for control:** Contrast with language/LLM-based control; video diffusion as alternative pretrained prior for embodied AI.</span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Takeaways</span></span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>WAMs built on video diffusion beat VLAs on motion/skill generalization by inheriting spatiotemporal priors; joint video-action prediction = inverse dynamics.</span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Diverse heterogeneous robot data outperforms repetitive demos; generalist policies don’t require many demos per task.</span>
+<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Cross-embodiment transfer is surprisingly efficient: video-only (10–20 min) and 30-min few-shot adaptation both work.</span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>Policy performance is tied to video generation quality; improving robotics = improving video models.</span>
+<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>38× inference speedup (decoupled schedules, caching, quantization) makes 14B diffusion viable for 7Hz real-time control.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

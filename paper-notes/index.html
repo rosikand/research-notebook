@@ -382,10 +382,21 @@ window.Quarto = {
     <a class="nav-link" href="../index.html"> 
 <span class="menu-text">Home</span></a>
   </li>  
-  <li class="nav-item">
-    <a class="nav-link" href="../about.html"> 
-<span class="menu-text">About</span></a>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-about" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">About</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-about">    
+        <li>
+    <a class="dropdown-item" href="../about.html">
+ <span class="dropdown-text">About Me</span></a>
   </li>  
+        <li>
+    <a class="dropdown-item" href="../research-interests/index.html">
+ <span class="dropdown-text">Research Interests</span></a>
+  </li>  
+    </ul>
+  </li>
   <li class="nav-item">
     <a class="nav-link" href="../ideas/index.html"> 
 <span class="menu-text">Ideas</span></a>
@@ -419,7 +430,7 @@ window.Quarto = {
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         
-    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(2)</span></div><div class="category" data-category="bGxt">llm <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cmVhZGluZw==">reading <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cmw=">rl <span class="quarto-category-count">(2)</span></div></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></div>
+    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(3)</span></div><div class="category" data-category="Zm91bmRhdGlvbi1tb2RlbHM=">foundation-models <span class="quarto-category-count">(1)</span></div><div class="category" data-category="bGxt">llm <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cmVhZGluZw==">reading <span class="quarto-category-count">(3)</span></div><div class="category" data-category="cmw=">rl <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cm9ib3RpY3M=">robotics <span class="quarto-category-count">(1)</span></div><div class="category" data-category="d29ybGQtbW9kZWxz">world-models <span class="quarto-category-count">(1)</span></div></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
@@ -538,7 +549,27 @@ Description
 </thead>
 <tbody class="list">
 
-<tr data-index="0" data-categories="cmwlMkNsbG0lMkNyZWFkaW5n" data-listing-date-sort="1772352000000" data-listing-file-modified-sort="1772434042024" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="4" data-listing-word-count-sort="646" data-listing-title-sort="LLMs Can Learn to Reason Via Off-Policy RL (OAPL)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
+<tr data-index="0" data-categories="cm9ib3RpY3MlMkNmb3VuZGF0aW9uLW1vZGVscyUyQ3dvcmxkLW1vZGVscyUyQ3JlYWRpbmc=" data-listing-date-sort="1772352000000" data-listing-file-modified-sort="1772434650269" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="5" data-listing-word-count-sort="846" data-listing-title-sort="DreamZero: World Action Models are Zero-shot Policies" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
+ if (href) { window.location=href ; return false; }">
+<td>
+<span class="listing-date">Mar 1, 2026</span>
+</td>
+<td>
+<a href="../paper-notes/2026-03-01-dreamzero/index.html" class="title listing-title">DreamZero: World Action Models are Zero-shot Policies</a>
+</td>
+<td>
+<span class="listing-status">&nbsp;</span>
+</td>
+<td>
+<span class="listing-categories">robotics, foundation-models, world-models, reading</span>
+</td>
+<td>
+<span class="listing-description">14B WAM built on pretrained video diffusion that jointly predicts video and actions, enabling zero-shot generalization, heterogeneous data learning, and cross-embodiment transfer.</span>
+</td>
+
+</tr>
+
+<tr data-index="1" data-categories="cmwlMkNsbG0lMkNyZWFkaW5n" data-listing-date-sort="1772352000000" data-listing-file-modified-sort="1772434042024" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="4" data-listing-word-count-sort="646" data-listing-title-sort="LLMs Can Learn to Reason Via Off-Policy RL (OAPL)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
  if (href) { window.location=href ; return false; }">
 <td>
 <span class="listing-date">Mar 1, 2026</span>
@@ -558,7 +589,7 @@ Description
 
 </tr>
 
-<tr data-index="1" data-categories="cmwlMkNsbG0lMkNyZWFkaW5n" data-listing-date-sort="1772092800000" data-listing-file-modified-sort="1772331706890" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="249" data-listing-title-sort="DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
+<tr data-index="2" data-categories="cmwlMkNsbG0lMkNyZWFkaW5n" data-listing-date-sort="1772092800000" data-listing-file-modified-sort="1772331706890" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="249" data-listing-title-sort="DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
  if (href) { window.location=href ; return false; }">
 <td>
 <span class="listing-date">Feb 26, 2026</span>
