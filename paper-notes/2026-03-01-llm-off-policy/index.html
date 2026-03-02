@@ -6,8 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-03-01">
+<meta name="description" content="Optimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.">
 
-<title>Paper Notes – ML Research Notebook</title>
+<title>LLMs Can Learn to Reason Via Off-Policy RL (OAPL) – ML Research Notebook</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -58,29 +60,27 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="../site_libs/quarto-nav/headroom.min.js"></script>
-<script src="../site_libs/clipboard/clipboard.min.js"></script>
-<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="../site_libs/quarto-search/fuse.min.js"></script>
-<script src="../site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="../">
-<script src="../site_libs/quarto-listing/list.min.js"></script>
-<script src="../site_libs/quarto-listing/quarto-listing.js"></script>
-<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="../site_libs/quarto-html/popper.min.js"></script>
-<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="../site_libs/quarto-html/anchor.min.js"></script>
-<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-234273d1456647dabc34a594ac50e507.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-0348920b7671f696dc9078d39bff215e.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-234273d1456647dabc34a594ac50e507.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
-<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-93e433daa20d3a4f024ae45a6f5dc548.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="../site_libs/bootstrap/bootstrap-dark-053784e53ace314977639f9da3f86154.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="../site_libs/bootstrap/bootstrap-93e433daa20d3a4f024ae45a6f5dc548.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-234273d1456647dabc34a594ac50e507.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-dark-0348920b7671f696dc9078d39bff215e.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-234273d1456647dabc34a594ac50e507.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-93e433daa20d3a4f024ae45a6f5dc548.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-dark-053784e53ace314977639f9da3f86154.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../site_libs/bootstrap/bootstrap-93e433daa20d3a4f024ae45a6f5dc548.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -108,63 +108,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
-<script>
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-favorites .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-date','listing-title','listing-categories','listing-description',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-title-sort'] }],
-      
-      searchColumns: [],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-favorites'] = new List('listing-favorites', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  
-
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-all .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
-
-    const options = {
-      valueNames: ['listing-date','listing-title','listing-status','listing-categories','listing-description',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-title-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-all'] = new List('listing-all', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
@@ -196,7 +139,7 @@ window.Quarto = {
 };
 </script>
 
-<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="../../styles.css">
 </head>
 
 <body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
@@ -368,7 +311,7 @@ window.Quarto = {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="../index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">ML Research Notebook</span>
     </a>
   </div>
@@ -379,23 +322,23 @@ window.Quarto = {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="../index.html"> 
+    <a class="nav-link" href="../../index.html"> 
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../about.html"> 
+    <a class="nav-link" href="../../about.html"> 
 <span class="menu-text">About</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../ideas/index.html"> 
+    <a class="nav-link" href="../../ideas/index.html"> 
 <span class="menu-text">Ideas</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../paper-notes/index.html" aria-current="page"> 
+    <a class="nav-link" href="../../paper-notes/index.html"> 
 <span class="menu-text">Paper Notes</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../notes/index.html"> 
+    <a class="nav-link" href="../../notes/index.html"> 
 <span class="menu-text">Notes</span></a>
   </li>  
 </ul>
@@ -418,22 +361,52 @@ window.Quarto = {
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
-    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(2)</span></div><div class="category" data-category="bGxt">llm <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cmVhZGluZw==">reading <span class="quarto-category-count">(2)</span></div><div class="category" data-category="cmw=">rl <span class="quarto-category-count">(2)</span></div></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></div>
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#paper-info" id="toc-paper-info" class="nav-link active" data-scroll-target="#paper-info">Paper Info</a></li>
+  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary">Summary</a></li>
+  <li><a href="#key-ideas" id="toc-key-ideas" class="nav-link" data-scroll-target="#key-ideas">Key Ideas</a></li>
+  <li><a href="#method" id="toc-method" class="nav-link" data-scroll-target="#method">Method</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a></li>
+  <li><a href="#strengths" id="toc-strengths" class="nav-link" data-scroll-target="#strengths">Strengths</a></li>
+  <li><a href="#weaknesses-limitations" id="toc-weaknesses-limitations" class="nav-link" data-scroll-target="#weaknesses-limitations">Weaknesses / Limitations</a></li>
+  <li><a href="#relevance-to-my-work" id="toc-relevance-to-my-work" class="nav-link" data-scroll-target="#relevance-to-my-work">Relevance to My Work</a></li>
+  <li><a href="#key-takeaways" id="toc-key-takeaways" class="nav-link" data-scroll-target="#key-takeaways">Key Takeaways</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+    </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<div class="quarto-title-block"><div><h1 class="title">Paper Notes</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
-</div>
+<div class="quarto-title-block"><div><h1 class="title">LLMs Can Learn to Reason Via Off-Policy RL (OAPL)</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+  <div class="quarto-categories">
+    <div class="quarto-category">rl</div>
+    <div class="quarto-category">llm</div>
+    <div class="quarto-category">reading</div>
+  </div>
+  </div>
 
+<div>
+  <div class="description">
+    Optimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.
+  </div>
+</div>
 
 
 <div class="quarto-title-meta">
 
     
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">March 1, 2026</p>
+    </div>
+  </div>
   
     
   </div>
@@ -443,145 +416,90 @@ window.Quarto = {
 </header>
 
 
-<p>Summaries, key takeaways, and critiques of papers I’m reading.</p>
-<p>Use <code>_template.qmd</code> as a starting point for new entries.</p>
-
+<section id="paper-info" class="level2">
+<h2 class="anchored" data-anchor-id="paper-info">Paper Info</h2>
+<ul>
+<li><strong>Authors:</strong> Daniel Ritter, Owen Oertell, Bradley Guo, Jonathan Chang, Kianté Brantley, Wen Sun (Cornell, Databricks, Harvard)</li>
+<li><strong>Link:</strong> <a href="https://arxiv.org/abs/2602.19362">arXiv</a></li>
+<li><strong>Read date:</strong> 2026-03-01</li>
+</ul>
+</section>
+<section id="summary" class="level2">
+<h2 class="anchored" data-anchor-id="summary">Summary</h2>
+<p>Modern RL post-training (e.g.&nbsp;GRPO) assumes on-policy data, but in practice the inference engine (vLLM) and trainer (HuggingFace) often disagree on log-probs or run asynchronously, making data effectively off-policy. Prior work either adds importance sampling (high variance) or modifies the inference engine (slow, doesn’t fix async lag). OAPL embraces off-policyness: it formulates a KL-regularized objective where the KL is to the lagged inference policy <span class="math inline">\(\pi_{\text{vllm}}\)</span>, derives a closed-form optimal policy, and trains with a simple squared regression loss that fits <span class="math inline">\(\beta \ln(\pi/\pi_{\text{vllm}})\)</span> to the optimal advantage. No importance weights, no clipping. Sync trainer and inference infrequently (e.g.&nbsp;every 50–400 steps); train off-policy in between. Outperforms GRPO+IS on math (AIME, HMMT, BRUMO), matches DeepCoder on LiveCodeBench with ~3× fewer samples, and scales better on Pass@k.</p>
+</section>
+<section id="key-ideas" class="level2">
+<h2 class="anchored" data-anchor-id="key-ideas">Key Ideas</h2>
+<ol type="1">
+<li><strong>On-policy is not necessary</strong> — off-policy methods (DDPG, SAC) often beat PPO/REINFORCE in classic RL; same applies to LLM post-training.</li>
+<li><strong>KL to <span class="math inline">\(\pi_{\text{vllm}}\)</span> instead of <span class="math inline">\(\pi_{\text{old}}\)</span></strong> — GRPO clips <span class="math inline">\(\pi/\pi_{\text{old}}\)</span> but the first gradient can already push <span class="math inline">\(\pi\)</span> far away; OAPL explicitly regularizes against the sampling policy.</li>
+<li><strong>Closed-form optimum</strong> — <span class="math inline">\(\pi^\star(y|x) \propto \pi_{\text{vllm}}(y|x) \exp(r/\beta)\)</span>, so <span class="math inline">\(\beta \ln(\pi^\star/\pi_{\text{vllm}}) = A^\star = r - V^\star\)</span>.</li>
+<li><strong><span class="math inline">\(\hat{V}^\star\)</span> from group rollouts</strong> — estimate <span class="math inline">\(V^\star(x) = \beta \ln \frac{1}{G}\sum_i \exp(r(x,y_i)/\beta)\)</span> using rollouts from <span class="math inline">\(\pi_{\text{vllm}}\)</span>; no separate critic.</li>
+<li><strong>Squared regression loss</strong> — minimize <span class="math inline">\(\sum_{x,i} (\beta \ln \frac{\pi(y_i|x)}{\pi_{\text{vllm}}(y_i|x)} - (r(x,y_i) - \hat{V}^\star(x)))^2\)</span>. Same minimizer regardless of sampling distribution.</li>
+</ol>
+</section>
+<section id="method" class="level2">
+<h2 class="anchored" data-anchor-id="method">Method</h2>
+<ul>
+<li><strong>Objective (Eq. 1):</strong> <span class="math inline">\(\max_\pi \mathbb{E}_{y \sim \pi} r(x,y) - \beta \text{KL}(\pi \| \pi_{\text{vllm}})\)</span> — maximize reward, stay close to inference policy.</li>
+<li><strong>Optimal advantage:</strong> <span class="math inline">\(A^\star = r - V^\star\)</span>, with <span class="math inline">\(V^\star = \beta \ln \mathbb{E}_{y \sim \pi_{\text{vllm}}} \exp(r/\beta)\)</span>.</li>
+<li><strong>Algorithm:</strong> Sync <span class="math inline">\(\pi\)</span> and <span class="math inline">\(\pi_{\text{vllm}}\)</span>; generate rollouts from <span class="math inline">\(\pi_{\text{vllm}}\)</span>; add to buffer; train <span class="math inline">\(\pi\)</span> on Eq. 3; every <span class="math inline">\(L\)</span> steps, sync and clear buffer.</li>
+<li><strong>Two betas:</strong> <span class="math inline">\(\beta_1\)</span> for <span class="math inline">\(\hat{V}^\star\)</span> (Eq. 2), <span class="math inline">\(\beta_2\)</span> for the loss (Eq. 3). <span class="math inline">\(\beta_1=1\)</span>, <span class="math inline">\(\beta_2=1e-3\)</span> worked well.</li>
+<li><strong>Policy lag <span class="math inline">\(L\)</span>:</strong> Math: 50 or 100; code: ~400 gradient steps per sync.</li>
+</ul>
+</section>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<ul>
+<li><strong>Math (Qwen3-4B-Thinking):</strong> OAPL outperforms GRPO+IS on AIME-25, HMMT-25 (Feb/Nov), BRUMO-25 across Pass@1/5/10.</li>
+<li><strong>Code (DeepSeek-R1-Distill-Qwen-14B):</strong> Matches DeepCoder on LiveCodeBench Pass@k with ~200K vs ~650K training samples (~3× fewer).</li>
+<li><strong>Entropy:</strong> OAPL preserves entropy; GRPO collapses it. OAPL scales better on Pass@k for <span class="math inline">\(k=1..256\)</span>.</li>
+<li><strong>Robustness:</strong> Stable with <span class="math inline">\(L=100\)</span> (math) and <span class="math inline">\(L\approx 400\)</span> (code) — 100× more off-policy than prior IS-based work.</li>
+</ul>
+</section>
+<section id="strengths" class="level2">
+<h2 class="anchored" data-anchor-id="strengths">Strengths</h2>
+<ul>
+<li>Principled off-policy objective with no importance sampling; avoids variance and heuristics (clip ratios, delete tokens).</li>
+<li>Simple squared regression; no critic, no extra value network.</li>
+<li>Fully asynchronous between syncs; reuse data, fewer generations.</li>
+<li>Empirically: better stability, entropy, and Pass@k scaling than GRPO.</li>
+<li>Directly addresses trainer–inference mismatch (FP differences, async pipelines).</li>
+</ul>
+</section>
+<section id="weaknesses-limitations" class="level2">
+<h2 class="anchored" data-anchor-id="weaknesses-limitations">Weaknesses / Limitations</h2>
+<ul>
+<li>Two-stage code setup filters prompts with no correct solutions; may not reflect real online training.</li>
+<li><span class="math inline">\(\beta_1,\beta_2\)</span> swept for math but not for code; sensitivity under-studied.</li>
+<li>Compared mainly to GRPO+IS; fewer comparisons to REBEL, REFUEL, AGRO, or other squared-loss methods.</li>
+<li>No ablations on <span class="math inline">\(L\)</span>; unclear sweet spot for different scales/tasks.</li>
+</ul>
+</section>
+<section id="relevance-to-my-work" class="level2">
+<h2 class="anchored" data-anchor-id="relevance-to-my-work">Relevance to My Work</h2>
+<ul>
+<li><strong>MedEnv / GRPO:</strong> Same verifiable-reward setting (math correctness, code execution). If our trainer and inference diverge (async, different backends), OAPL could be a drop-in alternative to GRPO+IS.</li>
+<li><strong>Sample efficiency:</strong> 3× fewer generations for similar performance — matters for expensive clinical trajectory rollouts.</li>
+<li><strong>Entropy and Pass@k:</strong> If we care about Pass@k for clinical plan generation (sample <span class="math inline">\(k\)</span> plans, take best), OAPL’s better scaling is directly relevant.</li>
+<li><strong>No importance weights:</strong> Simpler, more stable than adding IS to GRPO when we have policy lag.</li>
+</ul>
+</section>
+<section id="key-takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="key-takeaways">Key Takeaways</h2>
+<ol type="1">
+<li>Off-policy RL is viable and often preferable for LLM post-training when trainer and inference disagree or lag.</li>
+<li>KL to <span class="math inline">\(\pi_{\text{vllm}}\)</span> + squared regression to <span class="math inline">\(A^\star\)</span> yields a simple, stable objective.</li>
+<li>Infrequent sync (<span class="math inline">\(L=50\)</span>–400) + explicit KL regularization preserves entropy and improves Pass@k scaling vs GRPO.</li>
+<li>OAPL matches or beats GRPO with ~3× fewer training samples on code.</li>
+</ol>
 
 
 <!-- -->
 
+</section>
 
-<div class="quarto-listing quarto-listing-container-table" id="listing-favorites">
-<div class="listing-actions-group">
-   <div class="input-group input-group-sm quarto-listing-sort">
-    <span class="input-group-text"><i class="bi bi-sort-down"></i></span>
-    <select id="listing-favorites-sort" class="form-select" aria-label="Order By" onchange="window['quarto-listings']['listing-favorites'].sort(this.options[this.selectedIndex].value, { order: this.options[this.selectedIndex].getAttribute('data-direction')})">
-      <option value="" disabled="" selected="" hidden="">Order By</option>
-      <option value="index" data-direction="asc">Default</option>
-      <option value="listing-date-sort" data-direction="asc">
-        Date - Oldest
-      </option>
-      <option value="listing-date-sort" data-direction="desc">
-        Date - Newest
-      </option>
-      <option value="listing-title-sort" data-direction="asc">
-        Title
-      </option>
-    </select>
-  </div>
-    <div class="input-group input-group-sm quarto-listing-filter">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="text" class="search form-control" placeholder="Filter">
-    </div>
-</div>
-<table class="quarto-listing-table table table-striped table-hover caption-top" data-quarto-postprocess="true">
-<thead>
-<tr class="header">
-<th data-quarto-table-cell-role="th"><span class="sort" data-sort="listing-date-sort" onclick="if (this.classList.contains('sort-asc')) { this.classList.add('sort-desc'); this.classList.remove('sort-asc') } else { this.classList.add('sort-asc'); this.classList.remove('sort-desc')} return false;">Date</span></th>
-<th data-quarto-table-cell-role="th"><span class="sort" data-sort="listing-title-sort" onclick="if (this.classList.contains('sort-asc')) { this.classList.add('sort-desc'); this.classList.remove('sort-asc') } else { this.classList.add('sort-asc'); this.classList.remove('sort-desc')} return false;">Title</span></th>
-<th data-quarto-table-cell-role="th">Categories</th>
-<th data-quarto-table-cell-role="th">Description</th>
-</tr>
-</thead>
-<tbody class="list">
-</tbody>
-</table>
-<div class="listing-no-matching d-none">No matching items</div>
-</div><div class="quarto-listing quarto-listing-container-table" id="listing-all">
-<div class="listing-actions-group">
-   <div class="input-group input-group-sm quarto-listing-sort">
-    <span class="input-group-text"><i class="bi bi-sort-down"></i></span>
-    <select id="listing-all-sort" class="form-select" aria-label="Order By" onchange="window['quarto-listings']['listing-all'].sort(this.options[this.selectedIndex].value, { order: this.options[this.selectedIndex].getAttribute('data-direction')})">
-      <option value="" disabled="" selected="" hidden="">Order By</option>
-      <option value="index" data-direction="asc">Default</option>
-      <option value="listing-date-sort" data-direction="asc">
-        Date - Oldest
-      </option>
-      <option value="listing-date-sort" data-direction="desc">
-        Date - Newest
-      </option>
-      <option value="listing-title-sort" data-direction="asc">
-        Title
-      </option>
-    </select>
-  </div>
-    <div class="input-group input-group-sm quarto-listing-filter">
-      <span class="input-group-text"><i class="bi bi-search"></i></span>
-      <input type="text" class="search form-control" placeholder="Filter">
-    </div>
-</div>
-<table class="quarto-listing-table table table-striped table-hover">
-<thead>
-<tr>
-
-<th>
-<a class="sort" data-sort="listing-date-sort" onclick="if (this.classList.contains('sort-asc')) { this.classList.add('sort-desc'); this.classList.remove('sort-asc') } else { this.classList.add('sort-asc'); this.classList.remove('sort-desc')} return false;">Date</a>
-</th>
-
-<th>
-<a class="sort" data-sort="listing-title-sort" onclick="if (this.classList.contains('sort-asc')) { this.classList.add('sort-desc'); this.classList.remove('sort-asc') } else { this.classList.add('sort-asc'); this.classList.remove('sort-desc')} return false;">Title</a>
-</th>
-
-<th>
-status
-</th>
-
-<th>
-Categories
-</th>
-
-<th>
-Description
-</th>
-
-</tr>
-</thead>
-<tbody class="list">
-
-<tr data-index="0" data-categories="cmwlMkNsbG0lMkNyZWFkaW5n" data-listing-date-sort="1772352000000" data-listing-file-modified-sort="1772434042024" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="4" data-listing-word-count-sort="646" data-listing-title-sort="LLMs Can Learn to Reason Via Off-Policy RL (OAPL)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
- if (href) { window.location=href ; return false; }">
-<td>
-<span class="listing-date">Mar 1, 2026</span>
-</td>
-<td>
-<a href="../paper-notes/2026-03-01-llm-off-policy/index.html" class="title listing-title">LLMs Can Learn to Reason Via Off-Policy RL (OAPL)</a>
-</td>
-<td>
-<span class="listing-status">&nbsp;</span>
-</td>
-<td>
-<span class="listing-categories">rl, llm, reading</span>
-</td>
-<td>
-<span class="listing-description">Optimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.</span>
-</td>
-
-</tr>
-
-<tr data-index="1" data-categories="cmwlMkNsbG0lMkNyZWFkaW5n" data-listing-date-sort="1772092800000" data-listing-file-modified-sort="1772331706890" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="249" data-listing-title-sort="DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)" data-listing-filename-sort="index.qmd" onclick="href = this.querySelector('a').getAttribute('href');
- if (href) { window.location=href ; return false; }">
-<td>
-<span class="listing-date">Feb 26, 2026</span>
-</td>
-<td>
-<a href="../paper-notes/2026-02-26-deepseekmath-grpo/index.html" class="title listing-title">DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)</a>
-</td>
-<td>
-<span class="listing-status">&nbsp;</span>
-</td>
-<td>
-<span class="listing-categories">rl, llm, reading</span>
-</td>
-<td>
-<span class="listing-description">Notes on Group Relative Policy Optimization and its applicability to clinical agent training.</span>
-</td>
-
-</tr>
-
-</tbody>
-</table>
-<div class="listing-no-matching d-none">No matching items</div>
-</div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     // Ensure there is a toggle, if there isn't float one in the top right
@@ -1046,32 +964,78 @@ Description
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Paper Notes"</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="an">listing:</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">  - id: favorites</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">    contents: "*/index.qmd"</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">    sort: "date desc"</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">    type: table</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">    include:</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">      favorite: true</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">    fields: [date, title, categories, description]</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">    table-striped: true</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">    table-hover: true</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">  - id: all</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">    contents: "*/index.qmd"</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">    sort: "date desc"</span></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co">    type: table</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">    categories: true</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">    fields: [date, title, status, categories, description]</span></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co">    table-striped: true</span></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co">    table-hover: true</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)"</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> "Optimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling."</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> "2026-03-01"</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [rl, llm, reading]</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="an">paper:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">  authors: "Ritter, Oertell, Guo, Chang, Brantley, Sun"</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">  year: "2026"</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">  venue: "arXiv"</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">  url: "https://arxiv.org/abs/2602.19362"</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">## Paper Info</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Authors:** Daniel Ritter, Owen Oertell, Bradley Guo, Jonathan Chang, Kianté Brantley, Wen Sun (Cornell, Databricks, Harvard)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Link:** <span class="co">[</span><span class="ot">arXiv</span><span class="co">](https://arxiv.org/abs/2602.19362)</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Read date:** 2026-03-01</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Summary</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>Modern RL post-training (e.g. GRPO) assumes on-policy data, but in practice the inference engine (vLLM) and trainer (HuggingFace) often disagree on log-probs or run asynchronously, making data effectively off-policy. Prior work either adds importance sampling (high variance) or modifies the inference engine (slow, doesn't fix async lag). OAPL embraces off-policyness: it formulates a KL-regularized objective where the KL is to the lagged inference policy $\pi_{\text{vllm}}$, derives a closed-form optimal policy, and trains with a simple squared regression loss that fits $\beta \ln(\pi/\pi_{\text{vllm}})$ to the optimal advantage. No importance weights, no clipping. Sync trainer and inference infrequently (e.g. every 50–400 steps); train off-policy in between. Outperforms GRPO+IS on math (AIME, HMMT, BRUMO), matches DeepCoder on LiveCodeBench with ~3× fewer samples, and scales better on Pass@k.</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Ideas</span></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>Summaries, key takeaways, and critiques of papers I'm reading.</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>Use <span class="in">`_template.qmd`</span> as a starting point for new entries.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**On-policy is not necessary** — off-policy methods (DDPG, SAC) often beat PPO/REINFORCE in classic RL; same applies to LLM post-training.</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**KL to $\pi_{\text{vllm}}$ instead of $\pi_{\text{old}}$** — GRPO clips $\pi/\pi_{\text{old}}$ but the first gradient can already push $\pi$ far away; OAPL explicitly regularizes against the sampling policy.</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Closed-form optimum** — $\pi^\star(y|x) \propto \pi_{\text{vllm}}(y|x) \exp(r/\beta)$, so $\beta \ln(\pi^\star/\pi_{\text{vllm}}) = A^\star = r - V^\star$.</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**$\hat{V}^\star$ from group rollouts** — estimate $V^\star(x) = \beta \ln \frac{1}{G}\sum_i \exp(r(x,y_i)/\beta)$ using rollouts from $\pi_{\text{vllm}}$; no separate critic.</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Squared regression loss** — minimize $\sum_{x,i} (\beta \ln \frac{\pi(y_i|x)}{\pi_{\text{vllm}}(y_i|x)} - (r(x,y_i) - \hat{V}^\star(x)))^2$. Same minimizer regardless of sampling distribution.</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="fu">## Method</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Objective (Eq. 1):** $\max_\pi \mathbb{E}_{y \sim \pi} r(x,y) - \beta \text{KL}(\pi \| \pi_{\text{vllm}})$ — maximize reward, stay close to inference policy.</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Optimal advantage:** $A^\star = r - V^\star$, with $V^\star = \beta \ln \mathbb{E}_{y \sim \pi_{\text{vllm}}} \exp(r/\beta)$.</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Algorithm:** Sync $\pi$ and $\pi_{\text{vllm}}$; generate rollouts from $\pi_{\text{vllm}}$; add to buffer; train $\pi$ on Eq. 3; every $L$ steps, sync and clear buffer.</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Two betas:** $\beta_1$ for $\hat{V}^\star$ (Eq. 2), $\beta_2$ for the loss (Eq. 3). $\beta_1=1$, $\beta_2=1e-3$ worked well.</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Policy lag $L$:** Math: 50 or 100; code: ~400 gradient steps per sync.</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="fu">## Results</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Math (Qwen3-4B-Thinking):** OAPL outperforms GRPO+IS on AIME-25, HMMT-25 (Feb/Nov), BRUMO-25 across Pass@1/5/10.</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Code (DeepSeek-R1-Distill-Qwen-14B):** Matches DeepCoder on LiveCodeBench Pass@k with ~200K vs ~650K training samples (~3× fewer).</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Entropy:** OAPL preserves entropy; GRPO collapses it. OAPL scales better on Pass@k for $k=1..256$.</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Robustness:** Stable with $L=100$ (math) and $L\approx 400$ (code) — 100× more off-policy than prior IS-based work.</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a><span class="fu">## Strengths</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Principled off-policy objective with no importance sampling; avoids variance and heuristics (clip ratios, delete tokens).</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Simple squared regression; no critic, no extra value network.</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Fully asynchronous between syncs; reuse data, fewer generations.</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Empirically: better stability, entropy, and Pass@k scaling than GRPO.</span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Directly addresses trainer–inference mismatch (FP differences, async pipelines).</span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a><span class="fu">## Weaknesses / Limitations</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Two-stage code setup filters prompts with no correct solutions; may not reflect real online training.</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>$\beta_1,\beta_2$ swept for math but not for code; sensitivity under-studied.</span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Compared mainly to GRPO+IS; fewer comparisons to REBEL, REFUEL, AGRO, or other squared-loss methods.</span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>No ablations on $L$; unclear sweet spot for different scales/tasks.</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="fu">## Relevance to My Work</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**MedEnv / GRPO:** Same verifiable-reward setting (math correctness, code execution). If our trainer and inference diverge (async, different backends), OAPL could be a drop-in alternative to GRPO+IS.</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Sample efficiency:** 3× fewer generations for similar performance — matters for expensive clinical trajectory rollouts.</span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Entropy and Pass@k:** If we care about Pass@k for clinical plan generation (sample $k$ plans, take best), OAPL’s better scaling is directly relevant.</span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**No importance weights:** Simpler, more stable than adding IS to GRPO when we have policy lag.</span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Takeaways</span></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Off-policy RL is viable and often preferable for LLM post-training when trainer and inference disagree or lag.</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>KL to $\pi_{\text{vllm}}$ + squared regression to $A^\star$ yields a simple, stable objective.</span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Infrequent sync ($L=50$–400) + explicit KL regularization preserves entropy and improves Pass@k scaling vs GRPO.</span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>OAPL matches or beats GRPO with ~3× fewer training samples on code.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

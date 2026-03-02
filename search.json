@@ -364,11 +364,88 @@
     "text": "TODO\n\nProfile the FHIR validation bottleneck\nTry group sizes {4, 8, 16} to find the sweet spot\nSet up W&B logging for reward distributions per task type"
   },
   {
-    "objectID": "paper-notes/index.html",
-    "href": "paper-notes/index.html",
-    "title": "Paper Notes",
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
     "section": "",
-    "text": "Summaries, key takeaways, and critiques of papers I’m reading.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\nDate\nTitle\nCategories\nDescription\n\n\n\n\n\nNo matching items\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nTitle\n\n\n\nstatus\n\n\n\nCategories\n\n\n\nDescription\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nDeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)\n\n\n \n\n\nrl, llm, reading\n\n\nNotes on Group Relative Policy Optimization and its applicability to clinical agent training.\n\n\n\n\n\n\nNo matching items"
+    "text": "Authors: Daniel Ritter, Owen Oertell, Bradley Guo, Jonathan Chang, Kianté Brantley, Wen Sun (Cornell, Databricks, Harvard)\nLink: arXiv\nRead date: 2026-03-01"
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#paper-info",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#paper-info",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "",
+    "text": "Authors: Daniel Ritter, Owen Oertell, Bradley Guo, Jonathan Chang, Kianté Brantley, Wen Sun (Cornell, Databricks, Harvard)\nLink: arXiv\nRead date: 2026-03-01"
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#summary",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#summary",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Summary",
+    "text": "Summary\nModern RL post-training (e.g. GRPO) assumes on-policy data, but in practice the inference engine (vLLM) and trainer (HuggingFace) often disagree on log-probs or run asynchronously, making data effectively off-policy. Prior work either adds importance sampling (high variance) or modifies the inference engine (slow, doesn’t fix async lag). OAPL embraces off-policyness: it formulates a KL-regularized objective where the KL is to the lagged inference policy \\(\\pi_{\\text{vllm}}\\), derives a closed-form optimal policy, and trains with a simple squared regression loss that fits \\(\\beta \\ln(\\pi/\\pi_{\\text{vllm}})\\) to the optimal advantage. No importance weights, no clipping. Sync trainer and inference infrequently (e.g. every 50–400 steps); train off-policy in between. Outperforms GRPO+IS on math (AIME, HMMT, BRUMO), matches DeepCoder on LiveCodeBench with ~3× fewer samples, and scales better on Pass@k."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#key-ideas",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#key-ideas",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Key Ideas",
+    "text": "Key Ideas\n\nOn-policy is not necessary — off-policy methods (DDPG, SAC) often beat PPO/REINFORCE in classic RL; same applies to LLM post-training.\nKL to \\(\\pi_{\\text{vllm}}\\) instead of \\(\\pi_{\\text{old}}\\) — GRPO clips \\(\\pi/\\pi_{\\text{old}}\\) but the first gradient can already push \\(\\pi\\) far away; OAPL explicitly regularizes against the sampling policy.\nClosed-form optimum — \\(\\pi^\\star(y|x) \\propto \\pi_{\\text{vllm}}(y|x) \\exp(r/\\beta)\\), so \\(\\beta \\ln(\\pi^\\star/\\pi_{\\text{vllm}}) = A^\\star = r - V^\\star\\).\n\\(\\hat{V}^\\star\\) from group rollouts — estimate \\(V^\\star(x) = \\beta \\ln \\frac{1}{G}\\sum_i \\exp(r(x,y_i)/\\beta)\\) using rollouts from \\(\\pi_{\\text{vllm}}\\); no separate critic.\nSquared regression loss — minimize \\(\\sum_{x,i} (\\beta \\ln \\frac{\\pi(y_i|x)}{\\pi_{\\text{vllm}}(y_i|x)} - (r(x,y_i) - \\hat{V}^\\star(x)))^2\\). Same minimizer regardless of sampling distribution."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#method",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#method",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Method",
+    "text": "Method\n\nObjective (Eq. 1): \\(\\max_\\pi \\mathbb{E}_{y \\sim \\pi} r(x,y) - \\beta \\text{KL}(\\pi \\| \\pi_{\\text{vllm}})\\) — maximize reward, stay close to inference policy.\nOptimal advantage: \\(A^\\star = r - V^\\star\\), with \\(V^\\star = \\beta \\ln \\mathbb{E}_{y \\sim \\pi_{\\text{vllm}}} \\exp(r/\\beta)\\).\nAlgorithm: Sync \\(\\pi\\) and \\(\\pi_{\\text{vllm}}\\); generate rollouts from \\(\\pi_{\\text{vllm}}\\); add to buffer; train \\(\\pi\\) on Eq. 3; every \\(L\\) steps, sync and clear buffer.\nTwo betas: \\(\\beta_1\\) for \\(\\hat{V}^\\star\\) (Eq. 2), \\(\\beta_2\\) for the loss (Eq. 3). \\(\\beta_1=1\\), \\(\\beta_2=1e-3\\) worked well.\nPolicy lag \\(L\\): Math: 50 or 100; code: ~400 gradient steps per sync."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#results",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#results",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Results",
+    "text": "Results\n\nMath (Qwen3-4B-Thinking): OAPL outperforms GRPO+IS on AIME-25, HMMT-25 (Feb/Nov), BRUMO-25 across Pass@1/5/10.\nCode (DeepSeek-R1-Distill-Qwen-14B): Matches DeepCoder on LiveCodeBench Pass@k with ~200K vs ~650K training samples (~3× fewer).\nEntropy: OAPL preserves entropy; GRPO collapses it. OAPL scales better on Pass@k for \\(k=1..256\\).\nRobustness: Stable with \\(L=100\\) (math) and \\(L\\approx 400\\) (code) — 100× more off-policy than prior IS-based work."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#strengths",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#strengths",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Strengths",
+    "text": "Strengths\n\nPrincipled off-policy objective with no importance sampling; avoids variance and heuristics (clip ratios, delete tokens).\nSimple squared regression; no critic, no extra value network.\nFully asynchronous between syncs; reuse data, fewer generations.\nEmpirically: better stability, entropy, and Pass@k scaling than GRPO.\nDirectly addresses trainer–inference mismatch (FP differences, async pipelines)."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#weaknesses-limitations",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#weaknesses-limitations",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Weaknesses / Limitations",
+    "text": "Weaknesses / Limitations\n\nTwo-stage code setup filters prompts with no correct solutions; may not reflect real online training.\n\\(\\beta_1,\\beta_2\\) swept for math but not for code; sensitivity under-studied.\nCompared mainly to GRPO+IS; fewer comparisons to REBEL, REFUEL, AGRO, or other squared-loss methods.\nNo ablations on \\(L\\); unclear sweet spot for different scales/tasks."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#relevance-to-my-work",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#relevance-to-my-work",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Relevance to My Work",
+    "text": "Relevance to My Work\n\nMedEnv / GRPO: Same verifiable-reward setting (math correctness, code execution). If our trainer and inference diverge (async, different backends), OAPL could be a drop-in alternative to GRPO+IS.\nSample efficiency: 3× fewer generations for similar performance — matters for expensive clinical trajectory rollouts.\nEntropy and Pass@k: If we care about Pass@k for clinical plan generation (sample \\(k\\) plans, take best), OAPL’s better scaling is directly relevant.\nNo importance weights: Simpler, more stable than adding IS to GRPO when we have policy lag."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html#key-takeaways",
+    "href": "paper-notes/2026-03-01-llm-off-policy/index.html#key-takeaways",
+    "title": "LLMs Can Learn to Reason Via Off-Policy RL (OAPL)",
+    "section": "Key Takeaways",
+    "text": "Key Takeaways\n\nOff-policy RL is viable and often preferable for LLM post-training when trainer and inference disagree or lag.\nKL to \\(\\pi_{\\text{vllm}}\\) + squared regression to \\(A^\\star\\) yields a simple, stable objective.\nInfrequent sync (\\(L=50\\)–400) + explicit KL regularization preserves entropy and improves Pass@k scaling vs GRPO.\nOAPL matches or beats GRPO with ~3× fewer training samples on code."
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "I’m a Stanford CS BS/MS student, concentrating in AI. My research is at the intersection of reinforcement learning, large language models, and robot learning. More specifically, I am currently interested the following topics:\nRL sits in the middle of both of these interests: how can we develop powerful methods using reinforcement learning to (1) best leverage pre-trained representations and (2) adapt to new tasks in a robust and general manner? The core modeling work is the same across the two domains: just that the backbone is different.\nThis notebook serves as a public-facing log of experiments, paper notes, and technical deep dives from my ongoing work."
+  },
+  {
+    "objectID": "about.html#contact",
+    "href": "about.html#contact",
+    "title": "About",
+    "section": "Contact",
+    "text": "Contact\nPlease feel free to reach out if you have any thoughts or are open to collaborating on these topics! I’ve always thought that the best medium for learning is through conversation–though perhaps we are entering an age where the conversations are with non-human intelligence it seems.\n\nGitHub: roikand\nEmail: rsikand at stanford.edu"
   },
   {
     "objectID": "index.html",
@@ -385,18 +462,11 @@
     "text": "Sections\nIdeas — Research directions, hypotheses, experiment proposals, and half-baked thoughts worth capturing.\nPaper Notes — Summaries, key takeaways, and critiques of papers I’m reading.\nNotes — Technical notes, experiment logs, debugging journals, and everything else."
   },
   {
-    "objectID": "about.html",
-    "href": "about.html",
-    "title": "About",
+    "objectID": "paper-notes/index.html",
+    "href": "paper-notes/index.html",
+    "title": "Paper Notes",
     "section": "",
-    "text": "I’m a Stanford CS BS/MS student, concentrating in AI. My research is at the intersection of reinforcement learning, large language models, and robot learning. More specifically, I am currently interested the following topics:\nRL sits in the middle of both of these interests: how can we develop powerful methods using reinforcement learning to (1) best leverage pre-trained representations and (2) adapt to new tasks in a robust and general manner? The core modeling work is the same across the two domains: just that the backbone is different.\nThis notebook serves as a public-facing log of experiments, paper notes, and technical deep dives from my ongoing work."
-  },
-  {
-    "objectID": "about.html#contact",
-    "href": "about.html#contact",
-    "title": "About",
-    "section": "Contact",
-    "text": "Contact\nPlease feel free to reach out if you have any thoughts or are open to collaborating on these topics! I’ve always thought that the best medium for learning is through conversation–though perhaps we are entering an age where the conversations are with non-human intelligence it seems.\n\nGitHub: roikand\nEmail: rsikand at stanford.edu"
+    "text": "Summaries, key takeaways, and critiques of papers I’m reading.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\nDate\nTitle\nCategories\nDescription\n\n\n\n\n\nNo matching items\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nTitle\n\n\n\nstatus\n\n\n\nCategories\n\n\n\nDescription\n\n\n\n\n\n\n\n\nMar 1, 2026\n\n\nLLMs Can Learn to Reason Via Off-Policy RL (OAPL)\n\n\n \n\n\nrl, llm, reading\n\n\nOptimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.\n\n\n\n\n\n\nFeb 26, 2026\n\n\nDeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)\n\n\n \n\n\nrl, llm, reading\n\n\nNotes on Group Relative Policy Optimization and its applicability to clinical agent training.\n\n\n\n\n\n\nNo matching items"
   },
   {
     "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
