@@ -21,40 +21,52 @@
     <lastmod>2026-03-01T13:55:03.279Z</lastmod>
   </url>
   <url>
-    <loc>https://rosikand.github.io/research-notebook/notes/index.html</loc>
-    <lastmod>2026-03-01T02:21:46.890Z</lastmod>
-  </url>
-  <url>
-    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-02-26-deepseekmath-grpo/index.html</loc>
-    <lastmod>2026-03-01T02:21:46.890Z</lastmod>
-  </url>
-  <url>
-    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-03-01-llm-off-policy/index.html</loc>
-    <lastmod>2026-03-02T06:47:22.024Z</lastmod>
-  </url>
-  <url>
-    <loc>https://rosikand.github.io/research-notebook/about.html</loc>
-    <lastmod>2026-03-02T07:14:51.454Z</lastmod>
-  </url>
-  <url>
-    <loc>https://rosikand.github.io/research-notebook/index.html</loc>
-    <lastmod>2026-03-01T02:21:46.889Z</lastmod>
-  </url>
-  <url>
-    <loc>https://rosikand.github.io/research-notebook/paper-notes/index.html</loc>
-    <lastmod>2026-03-01T02:21:46.890Z</lastmod>
-  </url>
-  <url>
-    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-03-01-dreamzero/index.html</loc>
-    <lastmod>2026-03-02T06:57:30.269Z</lastmod>
+    <loc>https://rosikand.github.io/research-notebook/research-interests/index.html</loc>
+    <lastmod>2026-03-02T07:01:48.061Z</lastmod>
   </url>
   <url>
     <loc>https://rosikand.github.io/research-notebook/notes/2026-02-26-grpo-training-setup/index.html</loc>
     <lastmod>2026-03-01T02:21:46.889Z</lastmod>
   </url>
   <url>
-    <loc>https://rosikand.github.io/research-notebook/research-interests/index.html</loc>
-    <lastmod>2026-03-02T07:01:48.061Z</lastmod>
+    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-03-01-dreamzero/index.html</loc>
+    <lastmod>2026-03-02T06:57:30.269Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/paper-notes/index.html</loc>
+    <lastmod>2026-03-01T02:21:46.890Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-03-03-pipelinerl/index.html</loc>
+    <lastmod>2026-03-04T07:57:16.004Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/index.html</loc>
+    <lastmod>2026-03-01T02:21:46.889Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/about.html</loc>
+    <lastmod>2026-03-02T07:14:51.454Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-03-03-midtraining-bridge/index.html</loc>
+    <lastmod>2026-03-04T07:44:26.424Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-03-01-llm-off-policy/index.html</loc>
+    <lastmod>2026-03-02T06:47:22.024Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/paper-notes/2026-02-26-deepseekmath-grpo/index.html</loc>
+    <lastmod>2026-03-01T02:21:46.890Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/notes/index.html</loc>
+    <lastmod>2026-03-01T02:21:46.890Z</lastmod>
+  </url>
+  <url>
+    <loc>https://rosikand.github.io/research-notebook/ideas/2026-03-04-robot-self-distill/index.html</loc>
+    <lastmod>2026-03-04T11:17:08.288Z</lastmod>
   </url>
   <url>
     <loc>https://rosikand.github.io/research-notebook/ideas/2026-03-01-vlaf/vlaf-contrastive.html</loc>
@@ -66,7 +78,7 @@
   </url>
   <url>
     <loc>https://rosikand.github.io/research-notebook/ideas/2026-03-01-search-self-distillation/index.html</loc>
-    <lastmod>2026-03-02T08:13:07.131Z</lastmod>
+    <lastmod>2026-03-04T11:16:38.203Z</lastmod>
   </url>
   <url>
     <loc>https://rosikand.github.io/research-notebook/ideas/2026-02-27-self-distill-reward-hacking/index.html</loc>

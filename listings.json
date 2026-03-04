@@ -2,6 +2,7 @@
   {
     "listing": "/ideas/index.html",
     "items": [
+      "/ideas/2026-03-04-robot-self-distill/index.html",
       "/ideas/2026-03-01-search-self-distillation/index.html",
       "/ideas/2026-03-02-self-judge-from-environment/index.html",
       "/ideas/2026-03-01-mcts-distillation/index.html",
@@ -11,17 +12,19 @@
     ]
   },
   {
-    "listing": "/notes/index.html",
-    "items": [
-      "/notes/2026-02-26-grpo-training-setup/index.html"
-    ]
-  },
-  {
     "listing": "/paper-notes/index.html",
     "items": [
+      "/paper-notes/2026-03-03-midtraining-bridge/index.html",
+      "/paper-notes/2026-03-03-pipelinerl/index.html",
       "/paper-notes/2026-03-01-dreamzero/index.html",
       "/paper-notes/2026-03-01-llm-off-policy/index.html",
       "/paper-notes/2026-02-26-deepseekmath-grpo/index.html"
+    ]
+  },
+  {
+    "listing": "/notes/index.html",
+    "items": [
+      "/notes/2026-02-26-grpo-training-setup/index.html"
     ]
   }
 ]
