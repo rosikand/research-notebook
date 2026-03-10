@@ -1,0 +1,27 @@
+---
+title: "Meta Reward Models"
+description: "Learn to autonomously construct reward functions for arbitrary tasks, then instantiate RLVR loops — a meta-level system that figures out *what* to reward, not just *how* to optimize."
+date: "2026-03-06"
+categories: [rl]
+status: "exploring"
+---
+
+## Motivation
+
+Why is this worth pursuing? What gap does it fill?
+
+## Core Idea
+
+Describe the approach. Include equations, pseudocode, or diagrams as needed.
+
+## Open Questions
+
+-
+
+## Potential Experiments
+
+-
+
+## Related Work
+
+-

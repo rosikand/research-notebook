@@ -1,0 +1,27 @@
+---
+title: "Contrastive Learning on GRPO Rollouts"
+description: "CLIP-style contrastive objective over the G rollouts per prompt — positive/negative pairs from reward signal."
+date: "2026-03-06"
+categories: [rl]
+status: "exploring"
+---
+
+## Motivation
+
+Why is this worth pursuing? What gap does it fill?
+
+## Core Idea
+
+Describe the approach. Include equations, pseudocode, or diagrams as needed.
+
+## Open Questions
+
+-
+
+## Potential Experiments
+
+-
+
+## Related Work
+
+-

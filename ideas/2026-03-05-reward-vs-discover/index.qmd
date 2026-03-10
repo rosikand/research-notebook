@@ -1,0 +1,36 @@
+---
+title: "Beyond Reweighting: Can RLVR Discover?"
+description: "Does RLVR only reweight and sharpen pre-existing solutios, or can it discover new solutions?"
+date: "2026-03-05"
+categories: [rl]
+status: "exploring"
+---
+
+See [discovery_slides.pdf](./discovery_slides.pdf). 
+
+- Population-based approach: [population_rlvr_slides.pdf](./population_rlvr_slides.pdf). 
+- GLM5-inspired population-based approach: 
+- Multi-objective RLVR (vector of rewards, multi-task, in parallel): 
+- 
+
+## Motivation
+
+Why is this worth pursuing? What gap does it fill?
+
+> RLVR can only help climb the hill more efficiently, not help you climb a new hill. 
+
+## Core Idea
+
+Describe the approach. Include equations, pseudocode, or diagrams as needed.
+
+## Open Questions
+
+-
+
+## Potential Experiments
+
+-
+
+## Related Work
+
+-

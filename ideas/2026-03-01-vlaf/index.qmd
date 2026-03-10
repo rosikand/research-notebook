@@ -401,6 +401,14 @@ class VLAF(nn.Module):
 
 <div style="text-align: center;">   <img src=".images/2026-03-01-05-04-25.png" alt="${imageName}" style="width: 600px;" /> </div>
 
+### Variant 3: VLAF-Contrastive 
+
+<div style="text-align: center;">   <img src=".images/2026-03-01-05-41-11.png" alt="${imageName}" style="width: 600px;" /> </div>
+
+### Combined diagram 
+
+<div style="text-align: center;">   <img src=".images/2026-03-01-05-54-49.png" alt="${imageName}" style="width: 600px;" /> </div>
+
 ::: 
 
 ---
@@ -417,3 +425,9 @@ Frozen Encoders          Trained AR Transformer
 [ℓ₁, ℓ₂, ..., ℓ_N]  ──┘                                         ↓
                                                             L_AR = -log p(x_{t+1} | x_{≤t})
 ```
+
+
+## Variant #3: VLAF-Contrastive 
+
+See [vlaf-contrastive.md](vlaf-contrastive.md)
+

@@ -1,0 +1,31 @@
+---
+title: "Population-Based GRPO / Reward Models"
+description: ""
+date: "2026-03-07"
+categories: [rl]
+status: "exploring"
+---
+
+helpful chat: https://claude.ai/chat/a844d6c1-7048-4340-a1dd-9a43892d2413
+
+helpful doc: 
+
+## Motivation
+
+Why is this worth pursuing? What gap does it fill?
+
+## Core Idea
+
+Describe the approach. Include equations, pseudocode, or diagrams as needed.
+
+## Open Questions
+
+-
+
+## Potential Experiments
+
+-
+
+## Related Work
+
+-

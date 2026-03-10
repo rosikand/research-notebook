@@ -1,0 +1,32 @@
+---
+title: "Research Interests"
+bibliography: references.bib
+csl: https://www.zotero.org/styles/ieee
+---
+
+My research sits at the intersection of reinforcement learning, large language models, and robot learning. Below is a more detailed account of the specific directions I am pursuing and the questions that drive my work.
+
+## RL Post-Training for Language Models
+
+A central theme of my research is understanding how reinforcement learning can be used *after* supervised pre-training to unlock new capabilities in large language models. Recent work has shown that RL-based post-training---such as RLHF [@ouyang2022training] and RLVR [@deepseekmath2024]---can substantially improve reasoning, instruction following, and alignment. I am particularly interested in:
+
+- **Self-distillation and self-play**: can models improve by training on their own outputs, bootstrapping capability without new human data? This connects to ideas from expert iteration [@anthony2017thinking] and self-play in games [@silver2017mastering].
+- **Reward modeling and reward hacking**: how do we design reward signals that remain faithful proxies for human intent as models become more capable? The problem of reward hacking [@skalse2022defining] is a key bottleneck.
+- **Continual RL post-training**: rather than a single RL fine-tuning phase, can we develop curricula that iteratively refine models over time, akin to continual learning [@kirkpatrick2017overcoming]?
+
+## Robot Learning and Visuomotor Policies
+
+The second pillar of my work concerns learning sensorimotor policies for robotic manipulation. Foundation models pre-trained on internet-scale data provide rich representations, but bridging the gap to physical action remains an open challenge. I am exploring:
+
+- **Vision-language-action models (VLAs)**: architectures that map visual observations and language instructions directly to robot actions [@brohan2023rt2], and how to fine-tune them efficiently for new tasks.
+- **On-policy RL for robotics**: methods like PPO [@schulman2017proximal] and GRPO [@deepseekmath2024] applied in simulation and on real hardware, with a focus on sample efficiency and sim-to-real transfer.
+- **World models and planning**: learning predictive models of environment dynamics [@hafner2023mastering] that enable model-based planning and reduce the need for costly real-world interaction.
+
+## Unifying Theme
+
+RL is the connective tissue across these interests. Whether the "backbone" is a language model or a visuomotor policy, the core algorithmic questions are shared: how to define good reward signals, how to explore efficiently, and how to leverage pre-trained representations for downstream adaptation. I believe progress on these fronts will be mutually reinforcing---advances in RL post-training for LLMs will inform robot learning, and vice versa.
+
+## References
+
+::: {#refs}
+:::

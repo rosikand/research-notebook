@@ -9,8 +9,12 @@ website:
     left:
       - href: index.qmd
         text: Home
-      - href: about.qmd
-        text: About
+      - text: About
+        menu:
+          - href: about.qmd
+            text: About Me
+          - href: research-interests/index.qmd
+            text: Research Interests
       - href: ideas/index.qmd
         text: Ideas
       - href: paper-notes/index.qmd
@@ -34,7 +38,7 @@ format:
     code-tools: true
     highlight-style: github
   pdf:
-    documentclass: article
+    documentclass: scrartcl
     papersize: letter
     margin-left: 1in
     margin-right: 1in

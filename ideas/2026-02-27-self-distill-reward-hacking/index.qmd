@@ -6,8 +6,24 @@ categories: [rl]
 status: "exploring"  # seed | exploring | concrete | shelved
 ---
 
+Title ideas: 
+- LLM's can Catch Themselves Cheating via Self-Distillation Judgement 
+- Mitigating Reward Hacking On-Policy through Self-Distillation 
+- Can't Outrun Yourself: Self-Judgment for Reward Hacking Mitigation
+- The Policy as Its Own Judge: Evasion-Proof Detection via Contextualized Self-Distillation
+- Same Weights, Different Context: Self-Distillation Against Reward Hacking
+- Closing the Evasion Gap: When the Policy Detects Its Own Reward Hacks
+- Self-Judgment at Scale: Mitigating Reward Hacking Without External Detectors
 
-
+Acronym ideas:
+- **CSJ** — Contextualized Self-Judgment
+- **PSJ** — Policy Self-Judgment (policy is its own judge)
+- **OSJ** — Online Self-Judgment (emphasizes no distribution lag)
+- **SJD** — Self-Judgment Detection
+- **SIG** — Self-Informed Gating (emphasizes the advantage-gating mechanism)
+- **SCD** — Self-Contextualized Distillation
+- **SAGE** — Self-Assessment Gated Evasion (evasion-proof angle)
+- **POJ** — Policy as Own Judge
 
 ## Problem
 
@@ -269,12 +285,14 @@ The key distinction between variants:
 - Question: should we co-evolve the teacher mode independently or have it do a few gradient steps at inference time? Question arises from the fact that while we want the student and the teacher to be from the same distribution at each step in the environment, we may also want to instill into the teacher representations for how to "detect" reward hacking. Can this be done solely through in-context learning (i.e., context the teacher is conditioning on from the environment) or do we need gradient updates? If the latter, how do we prevent distribution divergence? 
 - 3 general approaches:
 	- Pure “same-weights, extra-context” teacher (no extra training)
-	- Teacher gets updated over time, but stays coupled to the student
-	- Teacher adapts at inference time (a few steps / memory) without breaking coupling
+	- Teacher gets updated over time, but stays coupled to the student (e.g., through EMA/regularization constraints)
+	- Teacher adapts at inference time (a few steps / memory) without breaking coupling (i.e., TTT, take a few gradient steps at inference time)
+  - Extra: train a small probe/adapter, ϕ, on top of the teacher so that the teacher itself doesn't go stale. Obvious caveat is that the adapter head goes stale then. But it might not matter if the main representational power is in the teacher/base model. 
 - Inference test-time training (ttt) instead of decoupled co-evolution. 
 - Note: I wonder is this whole TTT + self-distillation concept can be made general, including for tasks not related to reward hacking. Like instead of pi(.|s) (student) pi(.|s, c) (teacher), we do TTT on the teacher (for whatever task you may want... general RLVR, reward hacking, etc.), teacher model the distills this info back into the student. Value prop is that the student and teacher remain on-policy throughout each step in RLVR post-training, to prevent distribution shift which can help enable continual learning. The main problem with standard self-distillation here is that how strong can ICL and context really be for your task? Like is pi(.|s, c) really that much better than pi(.|s)? And you need some context "label" c anyways. What if we do n gradient steps on the teacher (i.e., using some RLVR reward) and then distill? Question now becomes how is this any different than just doing regular RLVR on a new task instantiating from the last trained checkpoint? Does this idea just collapse to that? Almost like a new form of MAML/meta-learning.  "MAML of the RL post-training era: theorizing a generalized reasoning engine. 
   - Update: mathematically this collapses to SFT. But one alternative angle to explore is doing some MCTS in the inner loop/Star/self-induced reasoning search. 
 - Might also be worth it to leverage the latent reasoning tokens as well here. Can help clarify model intent. 
+- I also wonder if we can reframe the objective of this approach to "The Policy as Its Own Judge" beyond reward hacking mitigation. Like adapt the LLM as a judge idea to the self-distillation concept to see if you can use the LLM as a judge, with privaleged teacher, as a "reward" in the general case. 
 
 :::
 

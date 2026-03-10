@@ -1,0 +1,45 @@
+---
+title: "Midtraining Bridges Pretraining and Posttraining Distributions"
+description: "Systematic study of midtraining as distributional bridging between pretraining and posttraining; benefits code/math domains, mitigates forgetting, and timing-weight interaction matters."
+date: "2026-03-03"
+categories: [rl, post-training]
+paper:
+  authors: "Emmy Liu, Graham Neubig, Chenyan Xiong"
+  year: "2025"
+  venue: "arXiv"
+  url: "https://arxiv.org/abs/2510.14865"
+---
+
+## Summary
+
+One-paragraph summary of the paper's contribution.
+
+- **Link:** [arXiv](https://arxiv.org/abs/2510.14865) | [PDF](https://arxiv.org/pdf/2510.14865)
+
+## Key Ideas
+
+1.
+
+## Method
+
+Describe the core technical approach.
+
+## Results
+
+What did they show? Key numbers or comparisons.
+
+## Strengths
+
+-
+
+## Weaknesses / Limitations
+
+-
+
+## Relevance to My Work
+
+How does this connect to MedEnv, GRPO, or other active projects?
+
+## Key Takeaways
+
+-
