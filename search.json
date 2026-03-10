@@ -84,11 +84,53 @@
     "text": "MCTS-Guided GRPO: Sample-Efficient LLM Post-Training via Tree-Search-Guided Exploration\n\nProblem\nGroup Relative Policy Optimization (GRPO) is the dominant approach for reinforcement learning from verifiable rewards (RLVR) in LLM post-training. For each problem in a batch, GRPO samples \\(G\\) completions from the current policy \\(\\pi_\\theta\\), scores them against a verifier, computes group-relative advantages, and takes a clipped policy gradient step.\nThe core inefficiency is exploration quality. Early in training, the policy is weak. Most of the \\(G\\) sampled completions fail verification and receive zero reward. The gradient signal comes only from the relative differences among these mostly-failed attempts. This is especially problematic for complex coding and mathematical reasoning tasks where the reward landscape is sparse — random sampling rarely finds the successful trajectories that carry the most learning signal.\nWe ask a direct empirical question: can we improve the sample efficiency of GRPO by replacing its random rollout generation with Monte Carlo Tree Search (MCTS), thereby front-loading inference compute to find more informative training trajectories?\n\n\n\nApproach\nThe modification to GRPO is surgical. We replace one component — the completion generation strategy — while keeping the rest of the GRPO pipeline (advantage computation, clipped policy gradient, KL regularization) intact. This isolation is deliberate: it allows clean attribution of any performance differences to the search-guided exploration.\n\nStandard GRPO (Baseline)\nFor each problem \\(p\\) in a batch, standard GRPO independently samples \\(G\\) completions from \\(\\pi_\\theta\\), evaluates each against the verifier, and computes advantages as:\n\\[\\hat{A}_i = \\frac{r_i - \\text{mean}(\\mathbf{r})}{\\text{std}(\\mathbf{r})}\\]\nThe policy is then updated via a clipped surrogate objective with a KL penalty against a reference policy \\(\\pi_{\\text{ref}}\\):\n\\[\\mathcal{L}_{\\text{GRPO}}(\\theta) = -\\mathbb{E}\\left[\\min\\left(\\rho_t \\hat{A}_t,\\; \\text{clip}(\\rho_t, 1-\\epsilon, 1+\\epsilon)\\hat{A}_t\\right)\\right] + \\beta \\, D_{\\text{KL}}(\\pi_\\theta \\| \\pi_{\\text{ref}})\\]\nwhere \\(\\rho_t = \\pi_\\theta(a_t | s_t) / \\pi_{\\text{old}}(a_t | s_t)\\).\n\n\nMCTS-Guided Generation (Proposed)\nWe replace the random sampling step with a structured search. For each problem \\(p\\), we run \\(N\\) MCTS simulations over a reasoning tree where:\n\nStates \\(s\\) are the current prompt concatenated with the partial reasoning trace.\nActions \\(a\\) are the next generated chunk (line, block, or paragraph — granularity is an ablation variable).\nNode selection uses PUCT, balancing the estimated Q-value \\(Q(s, a)\\) with the base policy’s prior \\(\\pi_\\theta(a | s)\\):\n\n\\[a^* = \\arg\\max_a \\left[ Q(s, a) + c \\cdot \\pi_\\theta(a | s) \\cdot \\frac{\\sqrt{\\sum_b N(s, b)}}{1 + N(s, a)} \\right]\\]\n\nTerminal evaluation executes against the verifier, yielding binary reward \\(R(s, a) \\in \\{0, 1\\}\\).\n\nAfter search, we extract the top-\\(K\\) trajectories ranked by visit count and Q-value. These trajectories — along with any failed but informative branches — are fed into the standard GRPO advantage computation. The key difference: the trajectories entering the advantage calculation are no longer random samples but search-curated completions with substantially higher reward rates.\n\n\nOptional: Search Distribution Bonus\nAs an ablation, we add an auxiliary KL loss that directly pushes the base policy toward the MCTS visit-count distribution at branching points:\n\\[\\mathcal{L}_{\\text{aux}} = \\alpha \\cdot D_{\\text{KL}}\\!\\left(\\pi_{\\text{MCTS}}(\\cdot | s) \\;\\|\\; \\pi_\\theta(\\cdot | s)\\right)\\]\nwhere \\(\\pi_{\\text{MCTS}}(a | s) \\propto N(s, a)^{1/\\tau}\\). This is the distillation component. We treat it as optional because the primary hypothesis concerns the exploration benefit of MCTS within the existing GRPO framework, and we want to isolate that effect cleanly.\n\n\n\n\nThe Core Tradeoff\nThis proposal is not claiming a free lunch. MCTS is expensive. For each training problem, we run \\(N\\) forward passes through the model (one per simulation), plus code executions for terminal evaluations. Standard GRPO is embarrassingly parallel — generate a batch, score it, update. MCTS is inherently sequential per problem (select → expand → evaluate → backpropagate, repeat).\nThe empirical question is whether the improved signal quality per gradient step compensates for the increased inference cost per step. We hypothesize that for sparse-reward tasks (competitive programming, complex math), the crossover is favorable: GRPO wastes so many generations on uninformative failures that the search overhead pays for itself. For dense-reward tasks, vanilla GRPO may remain preferable.\n\n\n\nOpen Technical Questions\n\nAction Space Definition\nMCTS requires a tractable branching factor. Token-level actions make the tree impossibly wide; full-completion actions collapse to Best-of-\\(N\\). We need to define chunk boundaries — likely at the level of reasoning steps, code blocks, or sentences — and compute \\(\\pi_\\theta(a | s)\\) over variable-length chunks as a meaningful PUCT prior. This is the hardest open problem in the proposal and we plan to explore multiple granularities empirically.\n\n\nValue Estimation for Non-Terminal Nodes\nWithout a learned value function, MCTS only gets reward signal from complete rollouts. For deep reasoning trees, this makes search inefficient. We will explore using a lightweight value head \\(V_\\phi(s)\\) or simple heuristics (partial execution feedback, self-evaluation prompts) as intermediate value estimates. In the absence of a value function, Q-values are estimated by Monte Carlo return:\n\\[Q(s, a) = \\frac{1}{N(s,a)} \\sum_{i=1}^{N(s,a)} R_i\\]\nwhere \\(R_i\\) is the terminal reward of the \\(i\\)-th rollout passing through \\((s, a)\\).\n\n\nCompute Feasibility\nOn an academic cluster with Qwen3-4B, running 32 MCTS simulations per problem means 32× forward passes per training sample. We plan to mitigate this through KV-cache sharing across tree branches, batch parallelism across problems within each iteration, and adaptive simulation budgets that decrease as the policy improves.\n\n\n\n\nRelated Work & Positioning\nThis proposal builds directly on established ideas. Expert Iteration (Anthony et al., 2017) and AlphaZero (Silver et al., 2017) demonstrated the search-distillation loop for games. STaR (Zelikman et al., 2022) and ReST (Gulcehre et al., 2023) apply self-improvement loops to LLM reasoning. DeepSeek-R1 explores MCTS for LLM reasoning. AlphaProof uses MCTS with formal verification for mathematical theorem proving.\nOur contribution is not architectural novelty. It is a rigorous empirical investigation of whether MCTS-guided exploration improves sample efficiency within the specific GRPO framework that has become standard for open-weight LLM post-training. The value lies in compute-controlled comparisons across task types, ablation over search parameters, and characterization of when tree search helps versus when flat sampling suffices.\n\n\n\nExperimental Design\n\nBaselines\n\n\n\n\n\n\n\n\nMethod\nDescription\nWhat It Tests\n\n\n\n\nVanilla GRPO\nRandom sampling, group-relative advantage\nBaseline sample efficiency\n\n\nBest-of-\\(N\\) + GRPO\nSample \\(N\\), keep top-\\(K\\), run GRPO on filtered set\nFlat search vs. tree search\n\n\nSFT on MCTS traces\nSupervised fine-tuning on verified trajectories only\nIs RL needed, or is the data enough?\n\n\nMCTS-GRPO (ours)\nMCTS-guided generation within standard GRPO loop\nFull proposed method\n\n\n\n\n\nMetrics\n\nPass@1 vs. training FLOPs — The primary comparison. We plot single-pass accuracy against total compute (inference + training) to test whether MCTS-GRPO reaches a given accuracy threshold with fewer total FLOPs.\nReward per gradient step — Measures signal quality: how much useful information each policy update receives.\nMCTS simulations required over training — Tests whether the improving policy prior reduces search cost over time (the virtuous cycle hypothesis).\nWall-clock time comparison — Practical feasibility on academic hardware.\n\n\n\nAblations\n\n\n\n\n\n\n\n\nVariable\nValues\nTests\n\n\n\n\nMCTS simulations \\(N\\)\n8, 16, 32, 64\nSearch budget vs. quality\n\n\nAction granularity\nToken, line, block, full\nBranching factor tradeoff\n\n\nSearch bonus weight \\(\\alpha\\)\n0, 0.1, 0.5, 1.0\nDistillation contribution\n\n\nTask sparsity\nEasy → hard benchmarks\nWhen does MCTS help most?\n\n\n\n\n\n\n\nImplementation\n\nBase model: Qwen3-4B (small enough for multiple inference passes per training step)\nTraining framework: Torchplate (training loop control) + minpost (GRPO implementation)\nMCTS: Custom implementation with KV-cache sharing across tree branches\nVerification: Sandboxed code execution for coding tasks; symbolic verification for math\nBenchmarks: APPS, MATH, and competition-level coding problems with execution-based verification\n\n\n\n\nSummary\nThis proposal is an empirical investigation, not an architectural contribution. The mechanism — using search to improve exploration in policy gradient methods — is established. Our contribution is a rigorous, compute-controlled study of whether and when MCTS-guided generation improves GRPO sample efficiency for LLM post-training. The expected output is a clear characterization of the cost-quality tradeoff between search-guided and random exploration across task difficulties and compute budgets."
   },
   {
-    "objectID": "ideas/2026-03-01-search-self-distillation/index.html",
-    "href": "ideas/2026-03-01-search-self-distillation/index.html",
-    "title": "Search Self-Distillation",
+    "objectID": "ideas/2026-03-07-population-based-grpo/index.html",
+    "href": "ideas/2026-03-07-population-based-grpo/index.html",
+    "title": "Population-Based GRPO / Reward Models",
     "section": "",
-    "text": "“generalized reasoning engine”. By replacing standard gradient steps with search in the inner loop, we avoid the trap of just doing Supervised Fine-Tuning. The teacher acts as the search heuristic, and the student compiles those discoveries back into its base weights, staying strictly on-policy to prevent distribution shift.\nThis formulation heavily utilizes the latent reasoning tokens to bridge the gap between exploration and distillation, clarifying the model’s intent at each step.\n\n1. The Search-Distillation Objective Function\nLet the policy be \\(\\pi_{\\theta}\\). For a given prompt \\(s\\), a complete trajectory \\(\\tau\\) consists of a sequence of intermediate reasoning tokens \\(r = (r_1, ..., r_k)\\) and a final answer/action \\(a\\). So, \\(\\tau = (r, a)\\).\nThe Inner Loop (Teacher’s Search): Instead of Test-Time Training via gradients , the Teacher runs a search algorithm \\(\\mathcal{S}\\) (e.g., MCTS or a STaR-like rejection sampling) over the latent reasoning space. The search is guided by the policy’s own prior probabilities and an environment verifier \\(V(s, \\tau) \\in \\{0, 1\\}\\).\nThe output of the search is a golden trajectory \\(\\tau^* = (r^*, a^*)\\) that successfully solves the prompt:\n\\[\\tau^* = \\text{argmax}_{\\tau \\in \\mathcal{S}(\\pi_{\\theta}, s)} V(s, \\tau)\\]\nThe Outer Loop (Student’s Distillation): The Student (which shares the exact same weights \\(\\theta\\)) is then updated to maximize the likelihood of this verifiable reasoning path. To maintain stability in RLVR, we optimize this using a policy gradient method like GRPO, treating the discovered \\(\\tau^*\\) as the behavioral target.\nThe distillation objective forces the model’s latent representations to align with the successful reasoning trace:\n\\[\\mathcal{L}_{distill}(\\theta) = -\\mathbb{E}_{s \\sim \\mathcal{D}, \\tau^* \\sim \\mathcal{S}} \\left[ \\sum_{t=1}^{|\\tau^*|} \\log \\pi_{\\theta}(\\tau^*_t | s, \\tau^*_{&lt;t}) \\right]\\]\nIf you want to maintain the relative advantage framing (like in GRPO), you can structure it as an advantage-weighted loss where trajectories found via search that yield high verifier scores receive a positive advantage \\(+A\\), and failed searches receive \\(-A\\).\n\n\n\n2. Algorithm: Generalized Reasoning via On-Policy Search\nHere is how the execution loop looks. Notice how it seamlessly supports continual learning because the student and teacher are always on the same distribution.\nAlgorithm: Inference-Search Distillation (The “New MAML”) Require: Initial policy weights \\(\\theta_{0}\\), Search algorithm \\(\\mathcal{S}\\) (e.g., MCTS), Verifier \\(V\\), Learning rate \\(\\eta\\).\n\nInitialize policy \\(\\pi_{\\theta} \\leftarrow \\pi_{\\theta_{0}}\\)\nFor each training iteration \\(k = 1, 2, \\dots\\) do:\n\\(\\quad\\) Sample a batch of prompts \\(\\{s_i\\}_{i=1}^B\\) from the task distribution.\n\\(\\quad\\) Teacher Phase (Self-Induced Reasoning Search):\n\\(\\quad \\quad\\) For each prompt \\(s_i\\) do:\n\\(\\quad \\quad \\quad\\) Execute search \\(\\mathcal{S}\\) using \\(\\pi_{\\theta}\\) as the rollout prior to explore reasoning tokens \\(r\\) and actions \\(a\\).\n\\(\\quad \\quad \\quad\\) Evaluate leaf nodes using the environment verifier \\(V(s_i, \\tau)\\).\n\\(\\quad \\quad \\quad\\) Extract the golden reasoning trajectory: \\(\\tau_i^* = (r_i^*, a_i^*)\\).\n\\(\\quad \\quad\\) End For\n\\(\\quad\\) Filter out prompts where the search failed to find a verifiable solution (\\(V=0\\)).\n\\(\\quad\\) Student Phase (On-Policy Distillation):\n\\(\\quad \\quad\\) Compute the distillation loss over the successful reasoning tokens and actions:\n\\(\\quad \\quad \\mathcal{L}(\\theta) = -\\frac{1}{N_{success}} \\sum_{i} \\log \\pi_{\\theta}(\\tau_i^* | s_i)\\)\n\\(\\quad \\quad\\) Update the shared weights: \\(\\theta \\leftarrow \\theta - \\eta \\nabla_{\\theta} \\mathcal{L}(\\theta)\\)\nEnd For\n\n\n\n\n3. Implementation Strategy\nBecause this architecture isolates the heavy compute to the forward-pass search tree rather than requiring ephemeral backwards passes, it’s highly scalable.\nIf you were to prototype this, you could easily build it into a minimal deep learning framework. You’d just need to abstract the SearchAlgorithm as a modular class that takes a prompt and the current model state, returning a list of token IDs (the golden trajectory). Then, your outer training loop remains a dead-simple PyTorch optimization step over those returned tokens, perfectly suited for a lightweight RL LLM post-training package like minpost."
+    "text": "helpful chat: https://claude.ai/chat/a844d6c1-7048-4340-a1dd-9a43892d2413\nhelpful doc:"
+  },
+  {
+    "objectID": "ideas/2026-03-07-population-based-grpo/index.html#motivation",
+    "href": "ideas/2026-03-07-population-based-grpo/index.html#motivation",
+    "title": "Population-Based GRPO / Reward Models",
+    "section": "Motivation",
+    "text": "Motivation\nWhy is this worth pursuing? What gap does it fill?"
+  },
+  {
+    "objectID": "ideas/2026-03-07-population-based-grpo/index.html#core-idea",
+    "href": "ideas/2026-03-07-population-based-grpo/index.html#core-idea",
+    "title": "Population-Based GRPO / Reward Models",
+    "section": "Core Idea",
+    "text": "Core Idea\nDescribe the approach. Include equations, pseudocode, or diagrams as needed."
+  },
+  {
+    "objectID": "ideas/2026-03-07-population-based-grpo/index.html#open-questions",
+    "href": "ideas/2026-03-07-population-based-grpo/index.html#open-questions",
+    "title": "Population-Based GRPO / Reward Models",
+    "section": "Open Questions",
+    "text": "Open Questions"
+  },
+  {
+    "objectID": "ideas/2026-03-07-population-based-grpo/index.html#potential-experiments",
+    "href": "ideas/2026-03-07-population-based-grpo/index.html#potential-experiments",
+    "title": "Population-Based GRPO / Reward Models",
+    "section": "Potential Experiments",
+    "text": "Potential Experiments"
+  },
+  {
+    "objectID": "ideas/2026-03-07-population-based-grpo/index.html#related-work",
+    "href": "ideas/2026-03-07-population-based-grpo/index.html#related-work",
+    "title": "Population-Based GRPO / Reward Models",
+    "section": "Related Work",
+    "text": "Related Work"
+  },
+  {
+    "objectID": "ideas/index.html",
+    "href": "ideas/index.html",
+    "title": "Ideas",
+    "section": "",
+    "text": "Research directions, hypotheses, experiment proposals, and half-baked thoughts.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Idea\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nIdea\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nMar 7, 2026\n\n\nPopulation-Based GRPO / Reward Models\n\n\nrl\n\n\n\n\n\n\n\n\n\nMar 6, 2026\n\n\nContrastive Learning on GRPO Rollouts\n\n\nrl\n\n\nCLIP-style contrastive objective over the G rollouts per prompt — positive/negative pairs from reward signal.\n\n\n\n\n\n\nMar 6, 2026\n\n\nMeta Reward Models\n\n\nrl\n\n\nLearn to autonomously construct reward functions for arbitrary tasks, then instantiate RLVR loops — a meta-level system that figures out what to reward, not just how to optimize.\n\n\n\n\n\n\nMar 5, 2026\n\n\nContinual Learning for RLVR\n\n\nrl\n\n\n\n\n\n\n\n\n\nMar 5, 2026\n\n\nMixture of Distillations\n\n\nrl\n\n\n\n\n\n\n\n\n\nMar 5, 2026\n\n\nBeyond Reweighting: Can RLVR Discover?\n\n\nrl\n\n\nDoes RLVR only reweight and sharpen pre-existing solutios, or can it discover new solutions?\n\n\n\n\n\n\nMar 5, 2026\n\n\nSelf-Distilling Reward Models\n\n\nrl, favorite\n\n\nPolicy as its own judge. Self-distill teacher as a reward model into the student\n\n\n\n\n\n\nMar 4, 2026\n\n\nOn-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models\n\n\nrobot-learning\n\n\nSelf-distill different embodiments through demo in a world model\n\n\n\n\n\n\nMar 2, 2026\n\n\nSearch Self-Distillation\n\n\nrl, llm\n\n\nUse MCTS on-policy\n\n\n\n\n\n\nMar 2, 2026\n\n\nThe Policy as Its Own Judge: Self-Rewarding Language Models through Self-Distillation Grounded by Asymmetric Environment Feedback\n\n\nrl\n\n\nUse self-distillation to make self-teacher own LLM-as-a-Judge. Conditioned on environment feedback.\n\n\n\n\n\n\nMar 1, 2026\n\n\nMeta-Reasoning via Search: Integrating Monte Carlo Tree Search with Group Relative Policy Optimization for Efficient LLM Post-Training\n\n\nrl\n\n\nAdding in MCTS into GRPO and then distilling this into the base model\n\n\n\n\n\n\nMar 1, 2026\n\n\nVLAF: Video-Language-Action Fusion for Robot Learning Backbone\n\n\nvla, robot learning\n\n\nCondition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch.\n\n\n\n\n\n\nFeb 26, 2026\n\n\nAdversarial Co-Training for Online Reward Hacking Mitigation (ARHD)\n\n\nrl\n\n\nCo-evolve a critic alongside the policy to detect and mitigate reward hacking online\n\n\n\n\n\n\nFeb 26, 2026\n\n\nSelf-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment\n\n\nrl\n\n\nCondition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch.\n\n\n\n\n\n\nNo matching items"
   },
   {
     "objectID": "ideas/2026-03-02-self-judge-from-environment/index.html",
@@ -273,193 +315,249 @@
     "text": "Appendix B: Comparison Table\n\n\n\n\n\n\n\n\n\n\n\n\nMethod\nV-L Align\nV-A Align\nL-A Align\nCross-Modal\nTemporal\nZero-Shot\n\n\n\n\nCLIP\n✓✓\n✗\n✗\nStatic\n✗\nV↔︎L\n\n\nR3M\n✓\n✓\n✗\nImplicit\n✓\n✗\n\n\nVIP\n✓\n✓\n✗\nImplicit\n✓\n✗\n\n\nRT-2\n✓\n✓\n✓\nImplicit\n✓\nLimited\n\n\nVLAF (Gated)\n✓\n✓\n✓\nStatic\n✓\n✗\n\n\nVLAF-AR\n✓✓\n✓✓\n✓✓\nDynamic\n✓✓\nV↔︎L↔︎A"
   },
   {
-    "objectID": "ideas/2026-03-05-continual-learning-rlvr/index.html",
-    "href": "ideas/2026-03-05-continual-learning-rlvr/index.html",
-    "title": "Continual Learning for RLVR",
+    "objectID": "ideas/2026-03-06-meta-reward-models/index.html",
+    "href": "ideas/2026-03-06-meta-reward-models/index.html",
+    "title": "Meta Reward Models",
     "section": "",
-    "text": "See slide decks of some new ideas in this space:\nImportant disctions:"
+    "text": "Why is this worth pursuing? What gap does it fill?"
   },
   {
-    "objectID": "ideas/2026-03-05-continual-learning-rlvr/index.html#methods-comparison",
-    "href": "ideas/2026-03-05-continual-learning-rlvr/index.html#methods-comparison",
-    "title": "Continual Learning for RLVR",
+    "objectID": "ideas/2026-03-06-meta-reward-models/index.html#motivation",
+    "href": "ideas/2026-03-06-meta-reward-models/index.html#motivation",
+    "title": "Meta Reward Models",
+    "section": "",
+    "text": "Why is this worth pursuing? What gap does it fill?"
+  },
+  {
+    "objectID": "ideas/2026-03-06-meta-reward-models/index.html#core-idea",
+    "href": "ideas/2026-03-06-meta-reward-models/index.html#core-idea",
+    "title": "Meta Reward Models",
+    "section": "Core Idea",
+    "text": "Core Idea\nDescribe the approach. Include equations, pseudocode, or diagrams as needed."
+  },
+  {
+    "objectID": "ideas/2026-03-06-meta-reward-models/index.html#open-questions",
+    "href": "ideas/2026-03-06-meta-reward-models/index.html#open-questions",
+    "title": "Meta Reward Models",
+    "section": "Open Questions",
+    "text": "Open Questions"
+  },
+  {
+    "objectID": "ideas/2026-03-06-meta-reward-models/index.html#potential-experiments",
+    "href": "ideas/2026-03-06-meta-reward-models/index.html#potential-experiments",
+    "title": "Meta Reward Models",
+    "section": "Potential Experiments",
+    "text": "Potential Experiments"
+  },
+  {
+    "objectID": "ideas/2026-03-06-meta-reward-models/index.html#related-work",
+    "href": "ideas/2026-03-06-meta-reward-models/index.html#related-work",
+    "title": "Meta Reward Models",
+    "section": "Related Work",
+    "text": "Related Work"
+  },
+  {
+    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html",
+    "href": "ideas/2026-03-05-reward-vs-discover/index.html",
+    "title": "Beyond Reweighting: Can RLVR Discover?",
+    "section": "",
+    "text": "See discovery_slides.pdf."
+  },
+  {
+    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#motivation",
+    "href": "ideas/2026-03-05-reward-vs-discover/index.html#motivation",
+    "title": "Beyond Reweighting: Can RLVR Discover?",
+    "section": "Motivation",
+    "text": "Motivation\nWhy is this worth pursuing? What gap does it fill?\n\nRLVR can only help climb the hill more efficiently, not help you climb a new hill."
+  },
+  {
+    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#core-idea",
+    "href": "ideas/2026-03-05-reward-vs-discover/index.html#core-idea",
+    "title": "Beyond Reweighting: Can RLVR Discover?",
+    "section": "Core Idea",
+    "text": "Core Idea\nDescribe the approach. Include equations, pseudocode, or diagrams as needed."
+  },
+  {
+    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#open-questions",
+    "href": "ideas/2026-03-05-reward-vs-discover/index.html#open-questions",
+    "title": "Beyond Reweighting: Can RLVR Discover?",
+    "section": "Open Questions",
+    "text": "Open Questions"
+  },
+  {
+    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#potential-experiments",
+    "href": "ideas/2026-03-05-reward-vs-discover/index.html#potential-experiments",
+    "title": "Beyond Reweighting: Can RLVR Discover?",
+    "section": "Potential Experiments",
+    "text": "Potential Experiments"
+  },
+  {
+    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#related-work",
+    "href": "ideas/2026-03-05-reward-vs-discover/index.html#related-work",
+    "title": "Beyond Reweighting: Can RLVR Discover?",
+    "section": "Related Work",
+    "text": "Related Work"
+  },
+  {
+    "objectID": "ideas/2026-03-05-mixture-of-distillations/index.html",
+    "href": "ideas/2026-03-05-mixture-of-distillations/index.html",
+    "title": "Mixture of Distillations",
+    "section": "",
+    "text": "See slide deck here."
+  },
+  {
+    "objectID": "ideas/2026-03-05-mixture-of-distillations/index.html#methods-comparison",
+    "href": "ideas/2026-03-05-mixture-of-distillations/index.html#methods-comparison",
+    "title": "Mixture of Distillations",
     "section": "Methods comparison",
     "text": "Methods comparison\n\n\n\n\n\n\n\n\n\nMethod\nTraining\nMerging\nForgetting fix\n\n\n\n\nSequential RLVR (baseline)\nSequential\nN/A\nNone (the problem)\n\n\nGLM-5 cross-stage distillation\nSequential\nSequential (recovery stage)\nRetroactive repair\n\n\nMulti-objective RLVR\nSimultaneous\nN/A (one model)\nAvoided by design\n\n\nFeedback prediction rehearsal\nSequential\nN/A (one model)\nConcurrent maintenance loss\n\n\nTeacher-based regularization\nSequential\nN/A (one model)\nConcurrent regularization\n\n\nPopulation RLVR\nParallel\nOne-shot merge\nAvoided by design\n\n\nMixture of Distillations\nParallel\nRouted distillation\nAvoided by design\n\n\n\nThe parallel methods (population, MoD) never forget because specialists never train on each other’s tasks. The simultaneous method (multi-objective) never forgets because all tasks are optimized together. The sequential methods (rehearsal, teacher reg) accept sequential training but add a maintenance signal to slow forgetting. GLM-5 accepts forgetting and repairs it after the fact."
   },
   {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "objectID": "notes/index.html",
+    "href": "notes/index.html",
+    "title": "Notes",
     "section": "",
-    "text": "World Action Models (WAMs) such as DreamZero jointly predict future video and robot actions through a shared backbone, achieving strong generalization on manipulation tasks. A key promise of WAMs is cross-embodiment transfer: leveraging abundant video demonstrations from other robots or humans to improve a target robot’s policy. However, current approaches use cross-embodiment data in a limited way—training only a video prediction objective on non-target data, discarding the action head entirely. The model learns what the world looks like when a task is performed but never explicitly learns how the target robot should act given what another embodiment demonstrated.\nThis is a surprisingly impoverished learning signal. The shared video-action backbone already encodes correspondences between visual dynamics and motor commands for the target embodiment. Cross-embodiment demonstrations provide strong constraints on the desired visual trajectory, grasp strategy, and timing. But no training signal connects these two sources of knowledge for action prediction.\nWe propose OPSD-CE (On-Policy Self-Distillation for Cross-Embodiment transfer), a method that uses cross-embodiment demonstrations as privileged information to generate dense, per-timestep action supervision for the target embodiment—then distills this knowledge into a student that requires no demonstrations at inference time."
+    "text": "Technical notes, experiment logs, debugging journals, and everything else.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Note\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nNote\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nGRPO Training Pipeline Setup Notes\n\n\nrl, medenv, infra\n\n\nTechnical setup notes for the GRPO training pipeline on MedEnv tasks.\n\n\n\n\n\n\nNo matching items"
   },
   {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#problem-statement",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html#problem-statement",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "objectID": "paper-notes/2026-03-05-pope/index.html",
+    "href": "paper-notes/2026-03-05-pope/index.html",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
     "section": "",
-    "text": "World Action Models (WAMs) such as DreamZero jointly predict future video and robot actions through a shared backbone, achieving strong generalization on manipulation tasks. A key promise of WAMs is cross-embodiment transfer: leveraging abundant video demonstrations from other robots or humans to improve a target robot’s policy. However, current approaches use cross-embodiment data in a limited way—training only a video prediction objective on non-target data, discarding the action head entirely. The model learns what the world looks like when a task is performed but never explicitly learns how the target robot should act given what another embodiment demonstrated.\nThis is a surprisingly impoverished learning signal. The shared video-action backbone already encodes correspondences between visual dynamics and motor commands for the target embodiment. Cross-embodiment demonstrations provide strong constraints on the desired visual trajectory, grasp strategy, and timing. But no training signal connects these two sources of knowledge for action prediction.\nWe propose OPSD-CE (On-Policy Self-Distillation for Cross-Embodiment transfer), a method that uses cross-embodiment demonstrations as privileged information to generate dense, per-timestep action supervision for the target embodiment—then distills this knowledge into a student that requires no demonstrations at inference time."
+    "text": "Authors: Yuxiao Qu, Amrith Setlur, Virginia Smith, Ruslan Salakhutdinov, Aviral Kumar (CMU)\nLink: arXiv\nRead date: 2026-03-05"
   },
   {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#background",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html#background",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
-    "section": "2. Background",
-    "text": "2. Background\n\n2.1 DreamZero and World Action Models\nDreamZero is a 14B-parameter WAM built on a Diffusion Transformer (DiT) backbone that jointly predicts video tokens and action tokens via flow matching. Given a task instruction \\(x\\) and current observation \\(s_0\\), the model autoregressively generates future video frames \\(\\hat{v}_{1:T}\\) and extracts actions \\(a_{1:T}\\) through an implicit inverse dynamics process. The video prediction acts as a visual planner: the model first “imagines” the future, then derives motor commands consistent with that imagined future.\nFor cross-embodiment data (e.g., human demonstrations, other robot platforms), DreamZero trains only the video prediction loss:\n\\[\\mathcal{L}_{\\text{cross}} = \\mathcal{L}_{\\text{video}}(\\theta;\\, x,\\, v^{\\text{demo}})\\]\ndiscarding the action loss since action labels are unavailable or incompatible. This yields a 42% improvement with 10–20 minutes of cross-embodiment video, but leaves substantial information unused.\nKey observation: DreamZero’s authors identify that the primary failure mode is video generation errors propagating to incorrect actions—not action extraction failures. The action head is capable when given good visual plans, but the visual planner sometimes errs.\n\n\n2.2 On-Policy Self-Distillation (OPSD)\nOPSD introduces a framework for distilling privileged information into a student policy through on-policy rollouts. A teacher \\(\\pi_\\theta^T(y \\mid x, I)\\) conditions on privileged information \\(I\\) unavailable at test time, while a student \\(\\pi_\\phi^S(y \\mid x)\\) sees only the input \\(x\\). The training procedure:\n\nThe student generates rollouts from its own policy.\nAt each token position along the rollout, the teacher provides a target distribution conditioned on \\(I\\).\nThe student minimizes per-token divergence against the teacher’s distribution.\n\nOPSD achieves 4–8× token efficiency over GRPO by replacing sparse end-of-sequence rewards with dense per-token supervision. The on-policy rollouts avoid distribution mismatch between training and inference."
-  },
-  {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#method-opsd-ce",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html#method-opsd-ce",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
-    "section": "3. Method: OPSD-CE",
-    "text": "3. Method: OPSD-CE\n\n3.1 Setup\nLet \\(\\pi_\\theta\\) denote the shared WAM with parameters \\(\\theta\\). We define two operating modes of the same model, controlled by a gating scalar \\(\\alpha \\in [0, 1]\\):\n\\[\\textbf{Teacher:} \\quad \\pi_\\theta^T(a_t \\mid s_t, x, v^{\\text{demo}};\\; \\alpha = 1)\\]\n\\[\\textbf{Student:} \\quad \\pi_\\theta^S(a_t \\mid s_t, x;\\; \\alpha = 0)\\]\nwhere \\(v^{\\text{demo}}\\) is a cross-embodiment demonstration video (privileged information), \\(s_t\\) is the state at timestep \\(t\\), and \\(x\\) is the task instruction.\nNo additional parameters. The cross-embodiment demonstration \\(v^{\\text{demo}}\\) is tokenized by the existing video tokenizer and injected into the DiT backbone via cross-attention, gated by \\(\\alpha\\). When \\(\\alpha = 0\\), the demonstration tokens are zeroed out and the model operates as the student. When \\(\\alpha = 1\\), the model has full access (teacher mode). Both modes share all parameters \\(\\theta\\).\n\n\n3.2 Why the Teacher Can Rationalize\nThe teacher is not an oracle—it must infer appropriate target-embodiment actions from a cross-embodiment demonstration. We argue this is tractable because:\n\nShared visual dynamics. The demonstration constrains the desired visual trajectory (object motion, contact timing, spatial path). These are largely embodiment-invariant.\nKnown target-embodiment mapping. From target-embodiment data \\(\\mathcal{D}_{\\text{tgt}}\\), the model has learned the mapping from visual trajectories to motor commands for the target robot.\nNarrowed search space. Instead of searching over all motor programs that achieve the goal, the teacher only needs to find commands that reproduce the demonstrated visual trajectory on the target embodiment.\n\nThe demonstration acts as a strong prior that collapses the ambiguity inherent in instruction-only conditioning.\n\n\n3.3 Training Algorithm\n\nAlgorithm: OPSD-CE\nInput: Shared WAM \\(\\pi_\\theta\\), target data \\(\\mathcal{D}_{\\text{tgt}}\\), cross-embodiment data \\(\\mathcal{D}_{\\text{cross}}\\), KL coefficient \\(\\beta\\), learning rate \\(\\eta\\)\nInitialize: \\(\\theta\\) from pre-trained WAM\nRepeat until convergence:\n\nStandard WAM training on target-embodiment data:\n\nSample \\((x, v_{\\text{tgt}}, a_{\\text{tgt}}) \\sim \\mathcal{D}_{\\text{tgt}}\\)\n\\(\\mathcal{L}_{\\text{video}} \\leftarrow \\text{FlowMatch}(\\pi_\\theta, x, v_{\\text{tgt}})\\)\n\\(\\mathcal{L}_{\\text{action}} \\leftarrow \\text{FlowMatch}(\\pi_\\theta, x, a_{\\text{tgt}})\\)\n\nCross-embodiment self-distillation:\n\nSample \\((x, v^{\\text{demo}}) \\sim \\mathcal{D}_{\\text{cross}}\\)\n\nPhase 1 — Student rollout (on-policy):\n\nRoll out \\(\\tau^S = (s_0, a_0^S, s_1, a_1^S, \\ldots, s_T)\\) using \\(\\pi_\\theta^S(\\cdot \\mid s_t, x;\\; \\alpha = 0)\\)\n\nPhase 2 — Dense teacher supervision:\n\nFor each timestep \\(t\\) in \\(\\tau^S\\):\n\nSample flow timestep \\(t_{\\text{flow}} \\sim \\mathcal{U}[0,1]\\), noise \\(\\epsilon \\sim \\mathcal{N}(0, I)\\)\nTeacher velocity: \\(\\mathbf{v}^T_t \\leftarrow f_\\theta(s_t, x, v^{\\text{demo}}, \\epsilon, t_{\\text{flow}};\\; \\alpha = 1)\\)\nStudent velocity: \\(\\mathbf{v}^S_t \\leftarrow f_\\theta(s_t, x, \\epsilon, t_{\\text{flow}};\\; \\alpha = 0)\\)\n\n\nPhase 3 — Distillation loss:\n\n\\(\\mathcal{L}_{\\text{distill}} \\leftarrow \\frac{1}{T} \\sum_{t=0}^{T-1} \\left\\| \\mathbf{v}^S_t - \\text{sg}(\\mathbf{v}^T_t) \\right\\|^2\\)\n\nJoint update:\n\n\\(\\mathcal{L} \\leftarrow \\mathcal{L}_{\\text{video}} + \\mathcal{L}_{\\text{action}} + \\beta \\cdot \\mathcal{L}_{\\text{distill}}\\)\n\\(\\theta \\leftarrow \\theta - \\eta \\nabla_\\theta \\mathcal{L}\\)\n\n\nReturn: \\(\\pi_\\theta^S\\) (student mode, \\(\\alpha = 0\\))\n\n\n\n3.4 Design Decisions\nFlow-matching MSE instead of KL. Since DreamZero uses flow matching for action prediction, the teacher and student outputs are velocity fields over continuous action space. Matching velocity fields via MSE:\n\\[\\left\\| \\mathbf{v}^S_t - \\mathbf{v}^T_t \\right\\|^2\\]\nis equivalent to minimizing the KL divergence between the implied flow distributions, and integrates natively with DreamZero’s existing training infrastructure.\nStop-gradient on teacher (\\(\\text{sg}\\)). We apply stop-gradient to the teacher’s velocity field to stabilize training, following OPSD. The teacher still improves through \\(\\mathcal{L}_{\\text{video}}\\) on cross-embodiment data and \\(\\mathcal{L}_{\\text{action}}\\) on target data. An ablation without stop-gradient (joint gradient flow through both modes) may benefit early training when the teacher’s rationalizations are poor.\nOn-policy rollouts. The student generates its own trajectories, and the teacher provides corrections at the states the student actually visits. This avoids the distribution mismatch problem of off-policy distillation: if the student drifts into an unusual state, the teacher corrects it there, not at states from an expert trajectory the student may never reach.\nSingle model, gated privileged information. Using a single model with \\(\\alpha\\)-gating rather than separate teacher/student networks means: (a) no extra memory or parameters, (b) improvements to the backbone benefit both modes simultaneously, and (c) the framework is compatible with \\(\\pi\\)-Distill-style joint training schedules that anneal \\(\\alpha\\) over time."
-  },
-  {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#experimental-plan",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html#experimental-plan",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
-    "section": "4. Experimental Plan",
-    "text": "4. Experimental Plan\n\n4.1 Setup\n\nTarget embodiment: AgiBot (7-DoF manipulator)\nCross-embodiment sources: Human demonstrations (video only), YAM robot data (video only), other robot platforms\n\\(\\mathcal{D}_{\\text{tgt}}\\): AgiBot teleoperation data (scarce: 10–60 min per task)\n\\(\\mathcal{D}_{\\text{cross}}\\): Human/YAM video demonstrations (abundant: hours of video)\n\n\n\n4.2 Baselines\n\nDreamZero (video-only): Standard co-training with \\(\\mathcal{L}_{\\text{video}}\\) on cross-embodiment data. No action supervision from \\(\\mathcal{D}_{\\text{cross}}\\).\nOff-policy distillation: Teacher generates target-embodiment actions from demos; student imitates via SFT on teacher-generated data (not on-policy).\nTarget-only: Train only on \\(\\mathcal{D}_{\\text{tgt}}\\), no cross-embodiment data. Lower bound.\nAction co-training: Train action loss on all embodiments with a learned action-space mapping. Upper bound (requires action labels for all embodiments).\n\n\n\n4.3 Key Experiments\nExperiment 1: Cross-embodiment transfer efficacy. Compare OPSD-CE vs. baselines on held-out tasks that only appear in cross-embodiment data (never demonstrated on AgiBot). This is the cleanest test: can the model do on AgiBot what it only saw a human do?\nExperiment 2: Data efficiency scaling. Vary the ratio \\(|\\mathcal{D}_{\\text{tgt}}| / |\\mathcal{D}_{\\text{cross}}|\\). Hypothesis: OPSD-CE shows the largest gains when target-embodiment data is most scarce, precisely the regime that matters in practice.\nExperiment 3: Embodiment gap. Test across embodiment pairs with varying morphological similarity: AgiBot ↔︎ YAM (similar grippers), AgiBot ↔︎ Human (different end-effectors), AgiBot ↔︎ bimanual robot (different kinematics). Hypothesis: performance degrades gracefully as the embodiment gap widens.\nExperiment 4: Ablations.\n\nOn-policy vs. off-policy distillation\nStop-gradient vs. joint gradient flow\nFull demo video vs. keyframes vs. trajectory sketch as privileged information\nSensitivity to \\(\\beta\\) (distillation coefficient)\n\n\n\n4.4 Evaluation Metrics\n\nTask success rate on held-out tasks (primary)\nSuccess rate on cross-embodiment-only tasks (zero-shot transfer)\nSample efficiency: success rate as a function of target-embodiment data quantity\nVideo-action alignment: how well predicted actions match generated video plans"
-  },
-  {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#expected-contributions",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html#expected-contributions",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
-    "section": "5. Expected Contributions",
-    "text": "5. Expected Contributions\n\nA principled framework for using cross-embodiment demonstrations as privileged information in WAMs, moving beyond video-only training objectives.\nDense action supervision from unlabeled video: cross-embodiment demonstrations that lack target-embodiment action labels are transformed into per-timestep action training signals via self-distillation.\nOn-policy training for robustness: corrections occur at states the student actually visits, avoiding the compounding errors of off-policy approaches.\nZero additional parameters: the method uses a single model with gated privileged information, requiring no architectural changes to the WAM.\n\nThe broader significance is that OPSD-CE turns any cross-embodiment video demonstration into a source of dense action supervision for a target robot—a capability that scales naturally with the growing availability of internet-scale manipulation video."
-  },
-  {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#connections-to-prior-work",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html#connections-to-prior-work",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
-    "section": "6. Connections to Prior Work",
-    "text": "6. Connections to Prior Work\nPrivileged information distillation. Learning Using Privileged Information (LUPI) trains a teacher with access to information unavailable at test time, then distills to a student. In robotics, this has been applied with access to simulator state, but not with cross-embodiment demonstrations as the privileged modality.\nCross-embodiment transfer. Existing approaches include domain randomization, embodiment-invariant representations, and video-only co-training (as in DreamZero). OPSD-CE is distinct in that it generates action-level supervision from cross-embodiment video, rather than relying solely on shared visual representations.\nSelf-distillation for reasoning. OPSD and \\(\\pi\\)-Distill show that dense self-distillation from privileged information dramatically improves sample efficiency in language model reasoning. We adapt this insight to the visuomotor domain, where the “reasoning” is motor planning and the “privileged information” is a demonstration from another embodiment."
-  },
-  {
-    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#timeline",
-    "href": "ideas/2026-03-04-robot-self-distill/index.html#timeline",
-    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
-    "section": "7. Timeline",
-    "text": "7. Timeline\n\n\n\n\n\n\n\nPhase\nDuration\n\n\n\n\nImplementation of \\(\\alpha\\)-gated privileged injection in DiT backbone\n2 weeks\n\n\nOn-policy rollout infrastructure + distillation loss\n2 weeks\n\n\nExperiment 1–2: Transfer efficacy and data efficiency\n3 weeks\n\n\nExperiment 3–4: Embodiment gap and ablations\n3 weeks\n\n\nWriting and submission\n2 weeks"
-  },
-  {
-    "objectID": "research-interests/index.html",
-    "href": "research-interests/index.html",
-    "title": "Research Interests",
+    "objectID": "paper-notes/2026-03-05-pope/index.html#paper-info",
+    "href": "paper-notes/2026-03-05-pope/index.html#paper-info",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
     "section": "",
-    "text": "My research sits at the intersection of reinforcement learning, large language models, and robot learning. Below is a more detailed account of the specific directions I am pursuing and the questions that drive my work."
+    "text": "Authors: Yuxiao Qu, Amrith Setlur, Virginia Smith, Ruslan Salakhutdinov, Aviral Kumar (CMU)\nLink: arXiv\nRead date: 2026-03-05"
   },
   {
-    "objectID": "research-interests/index.html#rl-post-training-for-language-models",
-    "href": "research-interests/index.html#rl-post-training-for-language-models",
-    "title": "Research Interests",
-    "section": "RL Post-Training for Language Models",
-    "text": "RL Post-Training for Language Models\nA central theme of my research is understanding how reinforcement learning can be used after supervised pre-training to unlock new capabilities in large language models. Recent work has shown that RL-based post-training—such as RLHF [1] and RLVR [2]—can substantially improve reasoning, instruction following, and alignment. I am particularly interested in:\n\nSelf-distillation and self-play: can models improve by training on their own outputs, bootstrapping capability without new human data? This connects to ideas from expert iteration [3] and self-play in games [4].\nReward modeling and reward hacking: how do we design reward signals that remain faithful proxies for human intent as models become more capable? The problem of reward hacking [5] is a key bottleneck.\nContinual RL post-training: rather than a single RL fine-tuning phase, can we develop curricula that iteratively refine models over time, akin to continual learning [6]?"
-  },
-  {
-    "objectID": "research-interests/index.html#robot-learning-and-visuomotor-policies",
-    "href": "research-interests/index.html#robot-learning-and-visuomotor-policies",
-    "title": "Research Interests",
-    "section": "Robot Learning and Visuomotor Policies",
-    "text": "Robot Learning and Visuomotor Policies\nThe second pillar of my work concerns learning sensorimotor policies for robotic manipulation. Foundation models pre-trained on internet-scale data provide rich representations, but bridging the gap to physical action remains an open challenge. I am exploring:\n\nVision-language-action models (VLAs): architectures that map visual observations and language instructions directly to robot actions [7], and how to fine-tune them efficiently for new tasks.\nOn-policy RL for robotics: methods like PPO [8] and GRPO [2] applied in simulation and on real hardware, with a focus on sample efficiency and sim-to-real transfer.\nWorld models and planning: learning predictive models of environment dynamics [9] that enable model-based planning and reduce the need for costly real-world interaction."
-  },
-  {
-    "objectID": "research-interests/index.html#unifying-theme",
-    "href": "research-interests/index.html#unifying-theme",
-    "title": "Research Interests",
-    "section": "Unifying Theme",
-    "text": "Unifying Theme\nRL is the connective tissue across these interests. Whether the “backbone” is a language model or a visuomotor policy, the core algorithmic questions are shared: how to define good reward signals, how to explore efficiently, and how to leverage pre-trained representations for downstream adaptation. I believe progress on these fronts will be mutually reinforcing—advances in RL post-training for LLMs will inform robot learning, and vice versa."
-  },
-  {
-    "objectID": "research-interests/index.html#references",
-    "href": "research-interests/index.html#references",
-    "title": "Research Interests",
-    "section": "References",
-    "text": "References\n\n\n[1] L. Ouyang et al., “Training language models to follow instructions with human feedback,” Advances in Neural Information Processing Systems, vol. 35, pp. 27730–27744, 2022.\n\n\n[2] Z. Shao et al., “DeepSeekMath: Pushing the limits of mathematical reasoning in open language models,” arXiv preprint arXiv:2402.03300, 2024.\n\n\n[3] T. Anthony, Z. Tian, and D. Barber, “Thinking fast and slow with deep learning and tree search,” in Advances in neural information processing systems, 2017.\n\n\n[4] D. Silver et al., “Mastering the game of Go without human knowledge,” Nature, vol. 550, no. 7676, pp. 354–359, 2017.\n\n\n[5] J. Skalse, N. Howe, D. Krasheninnikov, and D. Krueger, “Defining and characterizing reward hacking,” Advances in Neural Information Processing Systems, vol. 35, pp. 20460–20471, 2022.\n\n\n[6] J. Kirkpatrick et al., “Overcoming catastrophic forgetting in neural networks,” Proceedings of the National Academy of Sciences, vol. 114, no. 13, pp. 3521–3526, 2017.\n\n\n[7] A. Brohan et al., “RT-2: Vision-language-action models transfer web knowledge to robotic control,” arXiv preprint arXiv:2307.15818, 2023.\n\n\n[8] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Proximal policy optimization algorithms,” arXiv preprint arXiv:1707.06347, 2017.\n\n\n[9] D. Hafner, J. Pasukonis, J. Ba, and T. Lillicrap, “Mastering diverse domains through world models,” arXiv preprint arXiv:2301.04104, 2023."
-  },
-  {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "",
-    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
-  },
-  {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#environment",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#environment",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "",
-    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
-  },
-  {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "Training Config",
-    "text": "Training Config\ntraining_config = {\n    \"group_size\": 8,          # completions per prompt\n    \"learning_rate\": 1e-6,\n    \"kl_coeff\": 0.05,\n    \"max_turns\": 15,          # max conversation turns per episode\n    \"batch_size\": 32,         # prompts per batch\n    \"gradient_accumulation\": 4,\n}"
-  },
-  {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "Issues Encountered",
-    "text": "Issues Encountered\nOOM on long trajectories — multi-turn conversations with 15 turns × 8 group samples blows up memory. Current workaround: truncate to 10 turns max during training, evaluate on full 15.\nFHIR validation bottleneck — the FHIR server becomes the bottleneck when validating 8 parallel trajectories. Need to batch validation calls or run a local validator.\nReward normalization — raw rewards are in [0, 1] but the group baseline can push advantages to extreme values. Added reward clipping at ±3 std."
-  },
-  {
-    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#todo",
-    "href": "notes/2026-02-26-grpo-training-setup/index.html#todo",
-    "title": "GRPO Training Pipeline Setup Notes",
-    "section": "TODO",
-    "text": "TODO\n\nProfile the FHIR validation bottleneck\nTry group sizes {4, 8, 16} to find the sweet spot\nSet up W&B logging for reward distributions per task type"
-  },
-  {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "",
-    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
-  },
-  {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "",
-    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
-  },
-  {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "objectID": "paper-notes/2026-03-05-pope/index.html#summary",
+    "href": "paper-notes/2026-03-05-pope/index.html#summary",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
     "section": "Summary",
-    "text": "Summary\nIntroduces GRPO (Group Relative Policy Optimization) as a variant of PPO that avoids learning a separate value function. Instead of a critic, it estimates baselines from a group of sampled outputs for the same prompt. This dramatically simplifies the RL pipeline."
+    "text": "Summary\nStandard on-policy RL for LLM reasoning fails on hard problems because the model never samples a correct solution, yielding zero reward and no learning signal. POPE (Privileged On-Policy Exploration) addresses this by using oracle solutions as privileged information—not as distillation targets, but as exploration guides. Short prefixes from oracle solutions are prepended to hard problems with instructions to continue solving, enabling non-zero rewards during training. The key insight is that learned behaviors transfer back to unguided problems through a “stitching and overlap” mechanism: guided rollouts steer the model into favorable internal states, and natural chain-of-thought backtracking expands coverage to nearby states reachable without guidance. The paper also identifies “ray interference” as a failure mode when mixing easy and hard problems, where optimization preferentially advances already-solvable problems."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "objectID": "paper-notes/2026-03-05-pope/index.html#key-ideas",
+    "href": "paper-notes/2026-03-05-pope/index.html#key-ideas",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
     "section": "Key Ideas",
-    "text": "Key Ideas\n\nNo critic needed — sample \\(G\\) completions per prompt, use the group mean reward as baseline. This removes an entire model from the training loop.\nRLVR (RL with Verifiable Rewards) — works best when you have binary/verifiable correctness signals (math proofs, code execution). Directly applicable to our clinical task verification setup.\nOutcome supervision vs process supervision — they show outcome-level rewards work surprisingly well when paired with GRPO, even without step-level annotations."
+    "text": "Key Ideas\n\nZero-reward collapse on hard problems — On-policy RL (e.g. GRPO) produces no learning signal when the model can’t sample any correct solution; entropy bonuses and higher clip ratios don’t fix this and introduce pathologies.\nRay interference — Mixing easy and hard problems during training is counterproductive; optimization preferentially improves already-solvable problems while hard-problem performance stalls.\nPrivileged guidance ≠ distillation — Rather than SFT on oracle solutions (which causes catastrophic performance drops of ~85%), POPE uses short oracle prefixes to steer exploration while preserving the model’s own reasoning structure.\nStitching and overlap transfer — Guided rollouts place the model in favorable states; natural backtracking during chain-of-thought extends coverage to unguided-reachable states, enabling transfer without explicit curriculum.\n1:1 guided/unguided mixture — Training on equal parts guided and unguided versions of hard problems avoids ray interference and enables stable learning."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "Relevance to MedEnv",
-    "text": "Relevance to MedEnv\n\nOur FHIR action verification gives us exactly the kind of verifiable reward GRPO is designed for\nThe “no critic” property is huge for us — training a value function over clinical trajectories would be extremely expensive\nGroup sampling maps well to generating multiple clinical plans and rewarding the best ones"
+    "objectID": "paper-notes/2026-03-05-pope/index.html#method",
+    "href": "paper-notes/2026-03-05-pope/index.html#method",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "section": "Method",
+    "text": "Method\n\nPrefix selection: Identify the shortest oracle solution prefix that enables at least one successful completion from the current policy.\nGuided rollouts: Augment hard problems with the selected prefix plus a system instruction to continue solving from where the prefix leaves off.\nTraining mixture: 1:1 ratio of guided and unguided versions of hard problems. Easy problems can optionally be mixed in without ray interference (unlike vanilla RL).\nRL algorithm: Standard on-policy RL (GRPO-style); the innovation is entirely in the exploration strategy, not the optimization.\nTransfer mechanism: The model learns reasoning patterns in guided settings that naturally transfer because chain-of-thought backtracking revisits earlier reasoning steps, creating overlap between guided and unguided state distributions."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "Critiques / Limitations",
-    "text": "Critiques / Limitations\n\nGroup size \\(G\\) is a key hyperparameter they don’t ablate thoroughly — matters a lot for sample efficiency\nUnclear how well this extends to very long trajectories (their math tasks are relatively short)\nThe verifiable reward assumption is strong; many clinical tasks have ambiguous correctness"
+    "objectID": "paper-notes/2026-03-05-pope/index.html#results",
+    "href": "paper-notes/2026-03-05-pope/index.html#results",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "section": "Results",
+    "text": "Results\n\nHard-problem pass@16: ~29% improvement over baseline RL on training-set hard problems.\nAIME 2025: 58% pass@1, 83% pass@16 (vs. 48%/77% baseline).\nHMMT 2025: 40% pass@1, 70% pass@16 (substantial gains on harder benchmark).\nSFT on full oracle solutions: Catastrophic ~85% performance drop, validating that distillation is not the answer.\nAblation (no backtracking): Modified system instructions discouraging revisiting guidance reduced transfer, confirming the stitching mechanism."
   },
   {
-    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
-    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
-    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
-    "section": "Quotes to Remember",
-    "text": "Quotes to Remember\n\n(paraphrase) GRPO replaces the value model baseline with the group mean, reducing memory and compute by ~50% compared to PPO."
+    "objectID": "paper-notes/2026-03-05-pope/index.html#strengths",
+    "href": "paper-notes/2026-03-05-pope/index.html#strengths",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "section": "Strengths",
+    "text": "Strengths\n\nClean identification of a fundamental failure mode (zero-reward collapse) with systematic analysis of why standard fixes fail.\nPrincipled and practical: minimal changes to standard RL pipelines; only modifies the data/exploration, not the optimizer.\nStrong empirical results on competitive math benchmarks (AIME, HMMT).\nGood ablations validating the transfer mechanism (backtracking intervention, SFT comparison).\nIdentifies ray interference as a distinct failure mode with clear experimental evidence."
+  },
+  {
+    "objectID": "paper-notes/2026-03-05-pope/index.html#weaknesses-limitations",
+    "href": "paper-notes/2026-03-05-pope/index.html#weaknesses-limitations",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "section": "Weaknesses / Limitations",
+    "text": "Weaknesses / Limitations\n\nRequires access to oracle solutions for hard problems—limits applicability to domains without ground-truth answers.\nPrefix selection strategy (shortest prefix enabling success) may be sensitive to the current policy’s capability; unclear how robust this is across training.\nEvaluated primarily on math reasoning; transfer to other reasoning domains (code, science) not demonstrated.\nThe stitching/overlap explanation is intuitive but not formally characterized; hard to predict when transfer will or won’t work.\nComparison limited to GRPO-style RL; unclear how POPE interacts with other RL algorithms (PPO, DPO variants)."
+  },
+  {
+    "objectID": "paper-notes/2026-03-05-pope/index.html#relevance-to-my-work",
+    "href": "paper-notes/2026-03-05-pope/index.html#relevance-to-my-work",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "section": "Relevance to My Work",
+    "text": "Relevance to My Work\n\nDirectly relevant to GRPO work — POPE addresses exactly the failure mode of on-policy RL on hard problems. If training GRPO on challenging tasks with sparse rewards, POPE’s prefix-guided exploration could be a practical solution.\nCurriculum design — The ray interference finding is important: naively mixing easy and hard problems hurts. This should inform how we construct training mixtures.\nSelf-distillation connections — POPE is a middle ground between pure RL and distillation. Connects to ideas about using privileged information during training that gets removed at test time.\nExploration in RL for LLMs — Complements work on reward shaping and search-based methods (MCTS distillation); POPE is simpler but requires oracle access."
+  },
+  {
+    "objectID": "paper-notes/2026-03-05-pope/index.html#key-takeaways",
+    "href": "paper-notes/2026-03-05-pope/index.html#key-takeaways",
+    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "section": "Key Takeaways",
+    "text": "Key Takeaways\n\nOn-policy RL for LLMs has a hard floor: if the model can’t sample any correct solution, no amount of entropy bonuses or clipping fixes help.\nMixing easy and hard problems causes ray interference—optimization takes the path of least resistance toward already-solvable problems.\nOracle prefixes as exploration guides (not distillation targets) enable learning on hard problems while preserving the model’s reasoning structure.\nTransfer from guided to unguided settings works through chain-of-thought backtracking, which creates state-space overlap between the two settings.\nPOPE is a practical, minimal-change addition to standard RL pipelines that expands the frontier of learnable problems."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "",
+    "text": "Authors: Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al. (NVIDIA)\nLink: arXiv | Project | GitHub\nRead date: 2026-03-01"
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#paper-info",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#paper-info",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "",
+    "text": "Authors: Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al. (NVIDIA)\nLink: arXiv | Project | GitHub\nRead date: 2026-03-01"
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#summary",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#summary",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Summary",
+    "text": "Summary\nVLAs (Vision-Language-Action models) generalize well to new objects and semantics but struggle with novel physical motions and environments—they lack spatiotemporal priors from image-text pretraining. DreamZero introduces a World Action Model (WAM) built on a pretrained 14B autoregressive video diffusion backbone. By jointly predicting future video frames and actions, DreamZero learns physical dynamics via an inverse-dynamics formulation: align motor commands with predicted visual futures. This shifts action learning from dense state-action imitation to world-model-guided control. Key outcomes: &gt;2× improvement over SOTA VLAs on environment/task generalization, effective learning from diverse heterogeneous robot data (no repetitive demos), real-time control at 7Hz via 38× inference speedup, and two forms of cross-embodiment transfer—video-only demonstrations (+42% with 10–20 min) and few-shot embodiment adaptation (30 min play data to transfer AgiBot G1 → YAM)."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#key-ideas",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#key-ideas",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Key Ideas",
+    "text": "Key Ideas\n\nVLAs lack spatiotemporal priors — VLM backbones use static image-text; VLAs fail at novel skills (e.g. “untie shoelace”) not in robot data. Video diffusion encodes how the world evolves.\nJoint video-action = inverse dynamics — DreamZero decomposes as \\(\\pi(\\mathbf{o}_{l:l+H},\\mathbf{a}_{l:l+H}) = \\pi(\\mathbf{o}|\\text{context})\\,\\pi(\\mathbf{a}|\\mathbf{o},\\text{context})\\). Video prediction is implicit visual planning; actions follow predicted futures.\nDiverse data &gt; repetitive demos — Heterogeneous trajectories outperform same-hours multi-task repetitive data. Generalist policies don’t need many demos per task.\nAutoregressive + KV-cache reset — After each action chunk, replace predicted frames with ground-truth observations in KV cache to prevent error accumulation; keeps native frame rate for precise video-action alignment.\nPolicy quality ∝ video quality — Larger pretrained video models → better video predictions → better action execution. Improving robotics reduces to improving video generation.\nCross-embodiment transfer — Video-only from humans or other robots (no actions) improves target robot by &gt;42% with 10–20 min. Few-shot adaptation: 30 min play on new embodiment preserves zero-shot generalization."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#method",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#method",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Method",
+    "text": "Method\n\nArchitecture: 14B autoregressive DiT (flow matching) on pretrained video diffusion (Team Wan 2025). Inputs: visual context (VAE), language (text encoder), proprioception (state encoder). Joint video + action prediction via separate decoders; minimal added parameters.\nFormulation: Chunk-wise autoregressive prediction. Each chunk: \\(K\\) latent frames, horizon \\(H\\). Joint flow-matching objective over video latents \\(\\mathbf{z}_t\\) and normalized actions \\(\\mathbf{a}_t\\). Teacher forcing: denoise chunk \\(k\\) conditioned on clean chunks \\(1..k{-}1\\).\nTraining objective (Eq. 3): \\(\\mathcal{L} = \\mathbb{E}[\\sum_k w(t_k) \\| \\mathbf{u}_\\theta([\\mathbf{z}_{t_k}^k,\\mathbf{a}_{t_k}^k]; \\mathcal{C}_k, \\mathbf{c}, \\mathbf{q}_k, t_k) - \\mathbf{v}^k \\|^2]\\), with velocity \\(\\mathbf{v}^k = [\\mathbf{z}_1^k,\\mathbf{a}_1^k] - [\\mathbf{z}_0^k,\\mathbf{a}_0^k]\\).\nShared timestep for video and action (unlike some WAMs) for faster convergence.\nInference optimizations: DreamZero-Flash (decoupled denoising schedules), system-level parallelism/caching, quantization, CUDA tuning → 38× speedup, 7Hz closed-loop."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#results",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#results",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Results",
+    "text": "Results\n\nEnvironment & task generalization: &gt;2× average task progress vs SOTA pretrained VLAs (RoboArena, PolaRiS). Retains +10% after task-specific post-training.\nReal-time control: 7Hz action chunk generation on 14B model via 38× inference speedup.\nVideo-only cross-embodiment: Human (12 min) or YAM robot (20 min) video demos → +42% relative improvement on AgiBot G1 unseen tasks.\nFew-shot embodiment adaptation: Pretrained on AgiBot G1, adapt to YAM with 30 min play data; retains zero-shot generalization.\nData: ~500 hours real-world; shows non-trivial Genie Sim 3.0 (100 tasks) without sim training."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#strengths",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#strengths",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Strengths",
+    "text": "Strengths\n\nStrong empirical gains on generalization; breaks VLA ceiling for novel skills and environments.\nData efficiency: diverse heterogeneous data suffices; no need for repeated demonstrations per task.\nNovel cross-embodiment results: video-only transfer and 30-min few-shot adaptation are striking.\nReal-time deployable (7Hz) despite 14B diffusion model—important system contribution.\nOpen-source: weights, inference code, benchmarks (RoboArena, PolaRiS, Genie Sim 3.0).\nClean formulation: policy quality tied to video quality; clear research direction."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#weaknesses-limitations",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#weaknesses-limitations",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Weaknesses / Limitations",
+    "text": "Weaknesses / Limitations\n\nSingle embodiment focus (AgiBot G1, YAM); broader cross-embodiment scaling not shown.\n500 hours of real data still nontrivial; cost of data collection unclear.\nVideo diffusion backbone dependency; scaling/generalization may plateau with video model quality.\nLimited comparison to other WAMs (Kim et al., Liang et al., Pai et al.) in main text; ablations could be deeper.\n7Hz is usable but not high-frequency; some manipulation may need higher rates."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#relevance-to-my-work",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#relevance-to-my-work",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Relevance to My Work",
+    "text": "Relevance to My Work\nHow does this connect to MedEnv, GRPO, or other active projects?\n\nWorld models for RL/planning: If MedEnv or similar settings involve sequential decision-making, WAMs offer a different backbone than pure policy nets—video as implicit planner, inverse dynamics for actions. Could inform hierarchical or model-based RL.\nData efficiency: DreamZero’s diverse-data story (vs repeated demos) parallels sample-efficiency concerns in RL; lessons may transfer to how we structure demonstrations or play data.\nCross-domain transfer: Video-only and few-shot adaptation could inspire transfer setups in non-robotics domains (e.g. sim→real, domain A→domain B) if we have video-like sequential observations.\nFoundation models for control: Contrast with language/LLM-based control; video diffusion as alternative pretrained prior for embodied AI."
+  },
+  {
+    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#key-takeaways",
+    "href": "paper-notes/2026-03-01-dreamzero/index.html#key-takeaways",
+    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "section": "Key Takeaways",
+    "text": "Key Takeaways\n\nWAMs built on video diffusion beat VLAs on motion/skill generalization by inheriting spatiotemporal priors; joint video-action prediction = inverse dynamics.\nDiverse heterogeneous robot data outperforms repetitive demos; generalist policies don’t require many demos per task.\nCross-embodiment transfer is surprisingly efficient: video-only (10–20 min) and 30-min few-shot adaptation both work.\nPolicy performance is tied to video generation quality; improving robotics = improving video models.\n38× inference speedup (decoupled schedules, caching, quantization) makes 14B diffusion viable for 7Hz real-time control."
   },
   {
     "objectID": "paper-notes/2026-03-01-llm-off-policy/index.html",
@@ -679,6 +777,20 @@
     "text": "Sections\nIdeas — Research directions, hypotheses, experiment proposals, and half-baked thoughts worth capturing.\nPaper Notes — Summaries, key takeaways, and critiques of papers I’m reading.\nNotes — Technical notes, experiment logs, debugging journals, and everything else."
   },
   {
+    "objectID": "scratchpad/ideas.html",
+    "href": "scratchpad/ideas.html",
+    "title": "",
+    "section": "",
+    "text": "Code"
+  },
+  {
+    "objectID": "scratchpad/ideas.html#march-2026",
+    "href": "scratchpad/ideas.html#march-2026",
+    "title": "",
+    "section": "March 2026",
+    "text": "March 2026\n\nLet the Policy Judge Itself: Grounded Self-Distillation Reward Models\n\nCurrent idea we have been iterating on.\n\nPolicy as a Judge (POJ).\nVariants:\n\nSelf-prompting: llm-as-a-judge but the llm is the policy itself, conditioned on the environment feedback.\nSelf-reward mode: attach a latent reward head that outputs a continious valued scalar (0, 1) as the reward. conditioned on the feedback when doing the reward calculation pass.\nadd in the calibration and l_pred losses to maintain teacher stability: possibly just an ablation. Should start without this. Might not even need it at first.\nself-reward hack detection: instead of training the latent head to output a reward value, train it to output a hack detection classification\n\n\n\nSelf-Incrimination // Adverserial Reward Hack Detection\n2-3 variants:\n\nSelf-prompting/distillation judging: condition on the feedback/verified output and prompt self-llm if it was a reward hack or not.\nself-reward hack detection: instead of training the latent head to output a reward value as in POJ (see above), train it to output a hack detection classification.\nadverserial two player game setup: exact same setup as in our earlier proposed ARHD system but the labels y^* that we needed come from the two above approaches (self-prompting and self-reward hack model). This is different in that we add include the adverserial objective to the loss. Hence, the minimax game/adverserial.\n\n\n\nDynamic reward sparsity for RLVR\n\nRight now, RLVR gives 1 bit of information. SDPO proposed token-level distillation which theoretically is the upper bound on the information that can be given. However, sometimes this isn’t always a good thing. What if the self-teacher is wrong? or what if it leads to a non-elegant, underoptimized solution? There are many different reasons for why we don’t want perfect imitation of the teacher. Sometimes noise is helpful. You don’t want to get stuck optimizing in a contained zone of the reward/solution space. Could be better zones in the reward landscape. Thus, ideally, you want some balance between complete sparsity and density.\nThis can help do things like\n\npreserve diversity of solution space, which is measurable by plotting the t-sne of the reward clusters, analyzing pass@k performance in relation to pass@1… should hopefully go up as well\n\n\nsmooth out the optimization process\n\n\nlead to quicker convergence\n\n\ntheory: if rewards are sparse/1 bit only, then it will take longer for the policy to fizzle into the correct part of the solutuon space. it will neeed to do more exploration, with lots of noise. Thus, varying the bits-per-rollout ratio can potentially lead to quciker convergence to the correct zones.\n\n\n\n\nPopulation-based RLVR for Inducing Exploration\n\nRight now, RLVR is done with one seed, one policy but what if you can run n different seeds/variants of the policy at once? They may all end up at different zones in the reward space. This can help improve the diversity of solutions and also induce more exploration.\nCan potentially help solve the reweight vs. explore debate (i.e., is rlvr just sharpening the distribution already present in the base model or is it exploring fundamentally new solutions)."
+  },
+  {
     "objectID": "about.html",
     "href": "about.html",
     "title": "About",
@@ -767,210 +879,266 @@
     "href": "paper-notes/index.html",
     "title": "Paper Notes",
     "section": "",
-    "text": "Summaries, key takeaways, and critiques of papers I’m reading.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\nDate\nTitle\nCategories\nDescription\n\n\n\n\n\nNo matching items\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nTitle\n\n\n\nstatus\n\n\n\nCategories\n\n\n\nDescription\n\n\n\n\n\n\n\n\nMar 5, 2026\n\n\nPOPE: Privileged On-Policy Exploration for Hard Reasoning\n\n\n \n\n\nrl, llm, post-training, reading\n\n\nUses oracle solution prefixes as privileged guidance during RL to enable exploration on hard problems where standard on-policy RL yields zero reward.\n\n\n\n\n\n\nMar 5, 2026\n\n\nRARO: Reasoning via Adversarial Inverse RL from Demonstrations\n\n\n \n\n\nrl, llm, post-training, reading\n\n\nAdversarial IRL framework that trains LLM reasoning from expert demonstrations without task-specific verifiers, using a relativistic critic to distinguish expert from policy outputs.\n\n\n\n\n\n\nMar 3, 2026\n\n\nMidtraining Bridges Pretraining and Posttraining Distributions\n\n\n \n\n\nrl, post-training\n\n\nSystematic study of midtraining as distributional bridging between pretraining and posttraining; benefits code/math domains, mitigates forgetting, and timing-weight interaction matters.\n\n\n\n\n\n\nMar 3, 2026\n\n\nPipelineRL: Faster On-policy RL for Long Sequence Generation\n\n\n \n\n\nrl, llm, reading\n\n\nAsynchronous RL training with in-flight weight updates achieves ~2x faster learning while maintaining on-policy data quality for LLM reasoning.\n\n\n\n\n\n\nMar 1, 2026\n\n\nDreamZero: World Action Models are Zero-shot Policies\n\n\n \n\n\nrobotics, foundation-models, world-models, reading\n\n\n14B WAM built on pretrained video diffusion that jointly predicts video and actions, enabling zero-shot generalization, heterogeneous data learning, and cross-embodiment transfer.\n\n\n\n\n\n\nMar 1, 2026\n\n\nLLMs Can Learn to Reason Via Off-Policy RL (OAPL)\n\n\n \n\n\nrl, llm, reading\n\n\nOptimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.\n\n\n\n\n\n\nFeb 26, 2026\n\n\nDeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)\n\n\n \n\n\nrl, llm, reading\n\n\nNotes on Group Relative Policy Optimization and its applicability to clinical agent training.\n\n\n\n\n\n\nNo matching items"
+    "text": "Summaries, key takeaways, and critiques of papers I’m reading.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\nDate\nTitle\nCategories\nDescription\n\n\n\n\n\nNo matching items\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Title\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nTitle\n\n\n\nstatus\n\n\n\nCategories\n\n\n\nDescription\n\n\n\n\n\n\n\n\nMar 6, 2026\n\n\nRLAC: RL with Adversarial Critic for Free-Form Generation\n\n\n \n\n\nrl, llm, post-training, reading\n\n\nAdversarial game between a generator and learned critic that dynamically proposes failure modes verified by external validators, replacing exhaustive rubric checking.\n\n\n\n\n\n\nMar 5, 2026\n\n\nPOPE: Privileged On-Policy Exploration for Hard Reasoning\n\n\n \n\n\nrl, llm, post-training, reading\n\n\nUses oracle solution prefixes as privileged guidance during RL to enable exploration on hard problems where standard on-policy RL yields zero reward.\n\n\n\n\n\n\nMar 5, 2026\n\n\nRARO: Reasoning via Adversarial Inverse RL from Demonstrations\n\n\n \n\n\nrl, llm, post-training, reading\n\n\nAdversarial IRL framework that trains LLM reasoning from expert demonstrations without task-specific verifiers, using a relativistic critic to distinguish expert from policy outputs.\n\n\n\n\n\n\nMar 3, 2026\n\n\nMidtraining Bridges Pretraining and Posttraining Distributions\n\n\n \n\n\nrl, post-training\n\n\nSystematic study of midtraining as distributional bridging between pretraining and posttraining; benefits code/math domains, mitigates forgetting, and timing-weight interaction matters.\n\n\n\n\n\n\nMar 3, 2026\n\n\nPipelineRL: Faster On-policy RL for Long Sequence Generation\n\n\n \n\n\nrl, llm, reading\n\n\nAsynchronous RL training with in-flight weight updates achieves ~2x faster learning while maintaining on-policy data quality for LLM reasoning.\n\n\n\n\n\n\nMar 1, 2026\n\n\nDreamZero: World Action Models are Zero-shot Policies\n\n\n \n\n\nrobotics, foundation-models, world-models, reading\n\n\n14B WAM built on pretrained video diffusion that jointly predicts video and actions, enabling zero-shot generalization, heterogeneous data learning, and cross-embodiment transfer.\n\n\n\n\n\n\nMar 1, 2026\n\n\nLLMs Can Learn to Reason Via Off-Policy RL (OAPL)\n\n\n \n\n\nrl, llm, reading\n\n\nOptimal Advantage-based Policy Optimization with Lagged Inference — off-policy RL for LLM post-training without importance sampling.\n\n\n\n\n\n\nFeb 26, 2026\n\n\nDeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)\n\n\n \n\n\nrl, llm, reading\n\n\nNotes on Group Relative Policy Optimization and its applicability to clinical agent training.\n\n\n\n\n\n\nNo matching items"
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html",
+    "href": "paper-notes/2026-03-06-rlac/index.html",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "",
-    "text": "Authors: Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al. (NVIDIA)\nLink: arXiv | Project | GitHub\nRead date: 2026-03-01"
+    "text": "Authors: Mian Wu, Gavin Zhang, Sewon Min, Sergey Levine, Aviral Kumar (UC Berkeley)\nLink: arXiv\nRead date: 2026-03-06"
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#paper-info",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#paper-info",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#paper-info",
+    "href": "paper-notes/2026-03-06-rlac/index.html#paper-info",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "",
-    "text": "Authors: Seonghyeon Ye, Yunhao Ge, Kaiyuan Zheng, Shenyuan Gao, Sihyun Yu, et al. (NVIDIA)\nLink: arXiv | Project | GitHub\nRead date: 2026-03-01"
+    "text": "Authors: Mian Wu, Gavin Zhang, Sewon Min, Sergey Levine, Aviral Kumar (UC Berkeley)\nLink: arXiv\nRead date: 2026-03-06"
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#summary",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#summary",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#summary",
+    "href": "paper-notes/2026-03-06-rlac/index.html#summary",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Summary",
-    "text": "Summary\nVLAs (Vision-Language-Action models) generalize well to new objects and semantics but struggle with novel physical motions and environments—they lack spatiotemporal priors from image-text pretraining. DreamZero introduces a World Action Model (WAM) built on a pretrained 14B autoregressive video diffusion backbone. By jointly predicting future video frames and actions, DreamZero learns physical dynamics via an inverse-dynamics formulation: align motor commands with predicted visual futures. This shifts action learning from dense state-action imitation to world-model-guided control. Key outcomes: &gt;2× improvement over SOTA VLAs on environment/task generalization, effective learning from diverse heterogeneous robot data (no repetitive demos), real-time control at 7Hz via 38× inference speedup, and two forms of cross-embodiment transfer—video-only demonstrations (+42% with 10–20 min) and few-shot embodiment adaptation (30 min play data to transfer AgiBot G1 → YAM)."
+    "text": "Summary\nScaling RL post-training to free-form generation (biography writing, code generation) is hard because evaluation requires checking many rubrics/criteria, and exhaustive verification is computationally prohibitive. RLAC frames this as an adversarial game: a critic LLM dynamically proposes the rubric the generator is most likely to fail, and an external validator checks only that rubric. The generator is rewarded when the critic can’t find a failure; the critic is rewarded when it correctly identifies one. Both are trained jointly via DPO with binary validator feedback. This achieves strong results on factual text generation and code generation while using 5–97% fewer verification calls than exhaustive approaches, and avoids reward hacking that plagues static critics."
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#key-ideas",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#key-ideas",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#key-ideas",
+    "href": "paper-notes/2026-03-06-rlac/index.html#key-ideas",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Key Ideas",
-    "text": "Key Ideas\n\nVLAs lack spatiotemporal priors — VLM backbones use static image-text; VLAs fail at novel skills (e.g. “untie shoelace”) not in robot data. Video diffusion encodes how the world evolves.\nJoint video-action = inverse dynamics — DreamZero decomposes as \\(\\pi(\\mathbf{o}_{l:l+H},\\mathbf{a}_{l:l+H}) = \\pi(\\mathbf{o}|\\text{context})\\,\\pi(\\mathbf{a}|\\mathbf{o},\\text{context})\\). Video prediction is implicit visual planning; actions follow predicted futures.\nDiverse data &gt; repetitive demos — Heterogeneous trajectories outperform same-hours multi-task repetitive data. Generalist policies don’t need many demos per task.\nAutoregressive + KV-cache reset — After each action chunk, replace predicted frames with ground-truth observations in KV cache to prevent error accumulation; keeps native frame rate for precise video-action alignment.\nPolicy quality ∝ video quality — Larger pretrained video models → better video predictions → better action execution. Improving robotics reduces to improving video generation.\nCross-embodiment transfer — Video-only from humans or other robots (no actions) improves target robot by &gt;42% with 10–20 min. Few-shot adaptation: 30 min play on new embodiment preserves zero-shot generalization."
+    "text": "Key Ideas\n\nExhaustive verification doesn’t scale — Free-form tasks have many evaluation criteria; checking all of them per sample is computationally prohibitive (e.g. 7.86M test executions for code).\nStatic critics get exploited — Fixed reward models or frozen critics are vulnerable to reward hacking as the generator improves. The generator learns to exploit blind spots.\nAdversarial min-max game — The critic proposes the worst-case rubric (most likely failure mode); the validator checks it. Generator maximizes performance, critic maximizes failure detection. Both co-evolve.\nPrompt-specific, verifiable supervision — Unlike generic reward models, the critic generates task-specific failure hypotheses that are verified against ground truth, maintaining signal fidelity.\nMassive efficiency gains — By checking only the most informative rubric per sample, RLAC reduces verification calls by 5.7× (text) to 97.5% (code) compared to exhaustive methods."
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#method",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#method",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#method",
+    "href": "paper-notes/2026-03-06-rlac/index.html#method",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Method",
-    "text": "Method\n\nArchitecture: 14B autoregressive DiT (flow matching) on pretrained video diffusion (Team Wan 2025). Inputs: visual context (VAE), language (text encoder), proprioception (state encoder). Joint video + action prediction via separate decoders; minimal added parameters.\nFormulation: Chunk-wise autoregressive prediction. Each chunk: \\(K\\) latent frames, horizon \\(H\\). Joint flow-matching objective over video latents \\(\\mathbf{z}_t\\) and normalized actions \\(\\mathbf{a}_t\\). Teacher forcing: denoise chunk \\(k\\) conditioned on clean chunks \\(1..k{-}1\\).\nTraining objective (Eq. 3): \\(\\mathcal{L} = \\mathbb{E}[\\sum_k w(t_k) \\| \\mathbf{u}_\\theta([\\mathbf{z}_{t_k}^k,\\mathbf{a}_{t_k}^k]; \\mathcal{C}_k, \\mathbf{c}, \\mathbf{q}_k, t_k) - \\mathbf{v}^k \\|^2]\\), with velocity \\(\\mathbf{v}^k = [\\mathbf{z}_1^k,\\mathbf{a}_1^k] - [\\mathbf{z}_0^k,\\mathbf{a}_0^k]\\).\nShared timestep for video and action (unlike some WAMs) for faster convergence.\nInference optimizations: DreamZero-Flash (decoupled denoising schedules), system-level parallelism/caching, quantization, CUDA tuning → 38× speedup, 7Hz closed-loop."
+    "text": "Method\n\nAdversarial formulation: Min-max game where generator maximizes expected reward and critic identifies worst-case rubrics. Reformulated as: generator wins if critic can’t find a failing rubric; critic wins if it correctly pinpoints a failure.\nTraining: Both generator and critic trained via DPO using binary feedback from external validator. Iterative process: sample outputs → critic proposes criteria → validator checks → update both policies.\nExternal validators: Ground-truth checkers (e.g. fact-checking APIs for biography, test case execution for code). These provide reliable but expensive binary signals.\nCritic adaptation: The critic co-evolves with the generator, continuously finding new failure modes as old ones are fixed. This prevents the reward hacking plateau seen with static critics."
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#results",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#results",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#results",
+    "href": "paper-notes/2026-03-06-rlac/index.html#results",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Results",
-    "text": "Results\n\nEnvironment & task generalization: &gt;2× average task progress vs SOTA pretrained VLAs (RoboArena, PolaRiS). Retains +10% after task-specific post-training.\nReal-time control: 7Hz action chunk generation on 14B model via 38× inference speedup.\nVideo-only cross-embodiment: Human (12 min) or YAM robot (20 min) video demos → +42% relative improvement on AgiBot G1 unseen tasks.\nFew-shot embodiment adaptation: Pretrained on AgiBot G1, adapt to YAM with 30 min play data; retains zero-shot generalization.\nData: ~500 hours real-world; shows non-trivial Genie Sim 3.0 (100 tasks) without sim training."
+    "text": "Results\n\nFactual text generation (Biography):\n\nQwen3-8B: FactScore 0.889, surpassing FactTune-FS (0.867)\n5.7× fewer verification calls than exhaustive checking\n\nCode generation:\n\nQwen2.5-Coder-7B: 56.6 average score across benchmarks\nOutperformed AceCoder methods using only 9% of training data\n97.5% fewer test case executions (192k vs. 7.86M)\n\nAblations:\n\nNoisy validation destabilizes training below baseline\nStatic critics plateau; adversarial critics maintain detection effectiveness\nDynamic adaptation is key to preventing reward hacking"
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#strengths",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#strengths",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#strengths",
+    "href": "paper-notes/2026-03-06-rlac/index.html#strengths",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Strengths",
-    "text": "Strengths\n\nStrong empirical gains on generalization; breaks VLA ceiling for novel skills and environments.\nData efficiency: diverse heterogeneous data suffices; no need for repeated demonstrations per task.\nNovel cross-embodiment results: video-only transfer and 30-min few-shot adaptation are striking.\nReal-time deployable (7Hz) despite 14B diffusion model—important system contribution.\nOpen-source: weights, inference code, benchmarks (RoboArena, PolaRiS, Genie Sim 3.0).\nClean formulation: policy quality tied to video quality; clear research direction."
+    "text": "Strengths\n\nElegant adversarial formulation that naturally focuses compute on the most informative evaluation criteria.\nMassive efficiency gains make RL practical for free-form tasks where exhaustive verification was infeasible.\nCo-evolving critic prevents reward hacking—a real and common failure mode with static reward models.\nDemonstrated across qualitatively different domains (factual text, code) with different verification structures.\nClean experimental design with informative ablations (noisy validator, static vs. adversarial critic)."
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#weaknesses-limitations",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#weaknesses-limitations",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#weaknesses-limitations",
+    "href": "paper-notes/2026-03-06-rlac/index.html#weaknesses-limitations",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Weaknesses / Limitations",
-    "text": "Weaknesses / Limitations\n\nSingle embodiment focus (AgiBot G1, YAM); broader cross-embodiment scaling not shown.\n500 hours of real data still nontrivial; cost of data collection unclear.\nVideo diffusion backbone dependency; scaling/generalization may plateau with video model quality.\nLimited comparison to other WAMs (Kim et al., Liang et al., Pai et al.) in main text; ablations could be deeper.\n7Hz is usable but not high-frequency; some manipulation may need higher rates."
+    "text": "Weaknesses / Limitations\n\nRequires an external validator for each rubric—still needs ground-truth checking infrastructure, just less of it.\nDPO-based training for both generator and critic; unclear how it interacts with online RL methods like GRPO.\nEvaluated only on 7–8B models; scaling behavior to larger models unknown.\nThe critic must be expressive enough to generate meaningful failure hypotheses; may struggle on tasks with subtle or hard-to-articulate failure modes.\nAdversarial dynamics can be unstable; paper reports stabilization but long-term training dynamics not deeply analyzed."
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#relevance-to-my-work",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#relevance-to-my-work",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#relevance-to-my-work",
+    "href": "paper-notes/2026-03-06-rlac/index.html#relevance-to-my-work",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Relevance to My Work",
-    "text": "Relevance to My Work\nHow does this connect to MedEnv, GRPO, or other active projects?\n\nWorld models for RL/planning: If MedEnv or similar settings involve sequential decision-making, WAMs offer a different backbone than pure policy nets—video as implicit planner, inverse dynamics for actions. Could inform hierarchical or model-based RL.\nData efficiency: DreamZero’s diverse-data story (vs repeated demos) parallels sample-efficiency concerns in RL; lessons may transfer to how we structure demonstrations or play data.\nCross-domain transfer: Video-only and few-shot adaptation could inspire transfer setups in non-robotics domains (e.g. sim→real, domain A→domain B) if we have video-like sequential observations.\nFoundation models for control: Contrast with language/LLM-based control; video diffusion as alternative pretrained prior for embodied AI."
+    "text": "Relevance to My Work\n\nSelf-distilling reward models connection — RLAC’s adversarial critic is conceptually related to the self-judge idea: both use an LLM to generate evaluation signals. The key difference is RLAC uses a separate critic model + external validator, while self-distilling reward models use the same model with asymmetric information. Could combine: use the policy itself as the adversarial critic, grounded by environment feedback.\nReward hacking mitigation — The adversarial critic that co-evolves with the generator directly addresses reward hacking. Relevant to the reward hack detection angle of the self-distilling reward models idea.\nEfficiency for RLVR — The “check only the most informative criterion” principle could apply to RLVR settings with multiple verification signals (e.g. multiple test cases in code).\nDense rewards from sparse verification — Similar motivation to the self-judge work: turn expensive/sparse verification into more informative training signals."
   },
   {
-    "objectID": "paper-notes/2026-03-01-dreamzero/index.html#key-takeaways",
-    "href": "paper-notes/2026-03-01-dreamzero/index.html#key-takeaways",
-    "title": "DreamZero: World Action Models are Zero-shot Policies",
+    "objectID": "paper-notes/2026-03-06-rlac/index.html#key-takeaways",
+    "href": "paper-notes/2026-03-06-rlac/index.html#key-takeaways",
+    "title": "RLAC: RL with Adversarial Critic for Free-Form Generation",
     "section": "Key Takeaways",
-    "text": "Key Takeaways\n\nWAMs built on video diffusion beat VLAs on motion/skill generalization by inheriting spatiotemporal priors; joint video-action prediction = inverse dynamics.\nDiverse heterogeneous robot data outperforms repetitive demos; generalist policies don’t require many demos per task.\nCross-embodiment transfer is surprisingly efficient: video-only (10–20 min) and 30-min few-shot adaptation both work.\nPolicy performance is tied to video generation quality; improving robotics = improving video models.\n38× inference speedup (decoupled schedules, caching, quantization) makes 14B diffusion viable for 7Hz real-time control."
+    "text": "Key Takeaways\n\nFree-form generation RL can be made practical by adversarially selecting which rubrics to verify, rather than checking all of them.\nCo-evolving the critic with the generator is essential—static critics get exploited and lead to reward hacking plateaus.\nThe adversarial framework achieves 5–97% verification cost reduction while matching or exceeding exhaustive verification quality.\nExternal ground-truth validators remain necessary but are used far more efficiently as targeted checks on critic-proposed failure modes.\nSame research group (Aviral Kumar) as POPE—both address making RL post-training more practical, from different angles (exploration vs. evaluation)."
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html",
-    "href": "paper-notes/2026-03-05-pope/index.html",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
     "section": "",
-    "text": "Authors: Yuxiao Qu, Amrith Setlur, Virginia Smith, Ruslan Salakhutdinov, Aviral Kumar (CMU)\nLink: arXiv\nRead date: 2026-03-05"
+    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#paper-info",
-    "href": "paper-notes/2026-03-05-pope/index.html#paper-info",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#paper-info",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
     "section": "",
-    "text": "Authors: Yuxiao Qu, Amrith Setlur, Virginia Smith, Ruslan Salakhutdinov, Aviral Kumar (CMU)\nLink: arXiv\nRead date: 2026-03-05"
+    "text": "Authors: Shao et al.\nLink: arXiv\nRead date: 2026-02-26"
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#summary",
-    "href": "paper-notes/2026-03-05-pope/index.html#summary",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#summary",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
     "section": "Summary",
-    "text": "Summary\nStandard on-policy RL for LLM reasoning fails on hard problems because the model never samples a correct solution, yielding zero reward and no learning signal. POPE (Privileged On-Policy Exploration) addresses this by using oracle solutions as privileged information—not as distillation targets, but as exploration guides. Short prefixes from oracle solutions are prepended to hard problems with instructions to continue solving, enabling non-zero rewards during training. The key insight is that learned behaviors transfer back to unguided problems through a “stitching and overlap” mechanism: guided rollouts steer the model into favorable internal states, and natural chain-of-thought backtracking expands coverage to nearby states reachable without guidance. The paper also identifies “ray interference” as a failure mode when mixing easy and hard problems, where optimization preferentially advances already-solvable problems."
+    "text": "Summary\nIntroduces GRPO (Group Relative Policy Optimization) as a variant of PPO that avoids learning a separate value function. Instead of a critic, it estimates baselines from a group of sampled outputs for the same prompt. This dramatically simplifies the RL pipeline."
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#key-ideas",
-    "href": "paper-notes/2026-03-05-pope/index.html#key-ideas",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#key-ideas",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
     "section": "Key Ideas",
-    "text": "Key Ideas\n\nZero-reward collapse on hard problems — On-policy RL (e.g. GRPO) produces no learning signal when the model can’t sample any correct solution; entropy bonuses and higher clip ratios don’t fix this and introduce pathologies.\nRay interference — Mixing easy and hard problems during training is counterproductive; optimization preferentially improves already-solvable problems while hard-problem performance stalls.\nPrivileged guidance ≠ distillation — Rather than SFT on oracle solutions (which causes catastrophic performance drops of ~85%), POPE uses short oracle prefixes to steer exploration while preserving the model’s own reasoning structure.\nStitching and overlap transfer — Guided rollouts place the model in favorable states; natural backtracking during chain-of-thought extends coverage to unguided-reachable states, enabling transfer without explicit curriculum.\n1:1 guided/unguided mixture — Training on equal parts guided and unguided versions of hard problems avoids ray interference and enables stable learning."
+    "text": "Key Ideas\n\nNo critic needed — sample \\(G\\) completions per prompt, use the group mean reward as baseline. This removes an entire model from the training loop.\nRLVR (RL with Verifiable Rewards) — works best when you have binary/verifiable correctness signals (math proofs, code execution). Directly applicable to our clinical task verification setup.\nOutcome supervision vs process supervision — they show outcome-level rewards work surprisingly well when paired with GRPO, even without step-level annotations."
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#method",
-    "href": "paper-notes/2026-03-05-pope/index.html#method",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
-    "section": "Method",
-    "text": "Method\n\nPrefix selection: Identify the shortest oracle solution prefix that enables at least one successful completion from the current policy.\nGuided rollouts: Augment hard problems with the selected prefix plus a system instruction to continue solving from where the prefix leaves off.\nTraining mixture: 1:1 ratio of guided and unguided versions of hard problems. Easy problems can optionally be mixed in without ray interference (unlike vanilla RL).\nRL algorithm: Standard on-policy RL (GRPO-style); the innovation is entirely in the exploration strategy, not the optimization.\nTransfer mechanism: The model learns reasoning patterns in guided settings that naturally transfer because chain-of-thought backtracking revisits earlier reasoning steps, creating overlap between guided and unguided state distributions."
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#relevance-to-medenv",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Relevance to MedEnv",
+    "text": "Relevance to MedEnv\n\nOur FHIR action verification gives us exactly the kind of verifiable reward GRPO is designed for\nThe “no critic” property is huge for us — training a value function over clinical trajectories would be extremely expensive\nGroup sampling maps well to generating multiple clinical plans and rewarding the best ones"
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#results",
-    "href": "paper-notes/2026-03-05-pope/index.html#results",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
-    "section": "Results",
-    "text": "Results\n\nHard-problem pass@16: ~29% improvement over baseline RL on training-set hard problems.\nAIME 2025: 58% pass@1, 83% pass@16 (vs. 48%/77% baseline).\nHMMT 2025: 40% pass@1, 70% pass@16 (substantial gains on harder benchmark).\nSFT on full oracle solutions: Catastrophic ~85% performance drop, validating that distillation is not the answer.\nAblation (no backtracking): Modified system instructions discouraging revisiting guidance reduced transfer, confirming the stitching mechanism."
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#critiques-limitations",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Critiques / Limitations",
+    "text": "Critiques / Limitations\n\nGroup size \\(G\\) is a key hyperparameter they don’t ablate thoroughly — matters a lot for sample efficiency\nUnclear how well this extends to very long trajectories (their math tasks are relatively short)\nThe verifiable reward assumption is strong; many clinical tasks have ambiguous correctness"
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#strengths",
-    "href": "paper-notes/2026-03-05-pope/index.html#strengths",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
-    "section": "Strengths",
-    "text": "Strengths\n\nClean identification of a fundamental failure mode (zero-reward collapse) with systematic analysis of why standard fixes fail.\nPrincipled and practical: minimal changes to standard RL pipelines; only modifies the data/exploration, not the optimizer.\nStrong empirical results on competitive math benchmarks (AIME, HMMT).\nGood ablations validating the transfer mechanism (backtracking intervention, SFT comparison).\nIdentifies ray interference as a distinct failure mode with clear experimental evidence."
+    "objectID": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
+    "href": "paper-notes/2026-02-26-deepseekmath-grpo/index.html#quotes-to-remember",
+    "title": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning (GRPO)",
+    "section": "Quotes to Remember",
+    "text": "Quotes to Remember\n\n(paraphrase) GRPO replaces the value model baseline with the group mean, reducing memory and compute by ~50% compared to PPO."
   },
   {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#weaknesses-limitations",
-    "href": "paper-notes/2026-03-05-pope/index.html#weaknesses-limitations",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
-    "section": "Weaknesses / Limitations",
-    "text": "Weaknesses / Limitations\n\nRequires access to oracle solutions for hard problems—limits applicability to domains without ground-truth answers.\nPrefix selection strategy (shortest prefix enabling success) may be sensitive to the current policy’s capability; unclear how robust this is across training.\nEvaluated primarily on math reasoning; transfer to other reasoning domains (code, science) not demonstrated.\nThe stitching/overlap explanation is intuitive but not formally characterized; hard to predict when transfer will or won’t work.\nComparison limited to GRPO-style RL; unclear how POPE interacts with other RL algorithms (PPO, DPO variants)."
-  },
-  {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#relevance-to-my-work",
-    "href": "paper-notes/2026-03-05-pope/index.html#relevance-to-my-work",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
-    "section": "Relevance to My Work",
-    "text": "Relevance to My Work\n\nDirectly relevant to GRPO work — POPE addresses exactly the failure mode of on-policy RL on hard problems. If training GRPO on challenging tasks with sparse rewards, POPE’s prefix-guided exploration could be a practical solution.\nCurriculum design — The ray interference finding is important: naively mixing easy and hard problems hurts. This should inform how we construct training mixtures.\nSelf-distillation connections — POPE is a middle ground between pure RL and distillation. Connects to ideas about using privileged information during training that gets removed at test time.\nExploration in RL for LLMs — Complements work on reward shaping and search-based methods (MCTS distillation); POPE is simpler but requires oracle access."
-  },
-  {
-    "objectID": "paper-notes/2026-03-05-pope/index.html#key-takeaways",
-    "href": "paper-notes/2026-03-05-pope/index.html#key-takeaways",
-    "title": "POPE: Privileged On-Policy Exploration for Hard Reasoning",
-    "section": "Key Takeaways",
-    "text": "Key Takeaways\n\nOn-policy RL for LLMs has a hard floor: if the model can’t sample any correct solution, no amount of entropy bonuses or clipping fixes help.\nMixing easy and hard problems causes ray interference—optimization takes the path of least resistance toward already-solvable problems.\nOracle prefixes as exploration guides (not distillation targets) enable learning on hard problems while preserving the model’s reasoning structure.\nTransfer from guided to unguided settings works through chain-of-thought backtracking, which creates state-space overlap between the two settings.\nPOPE is a practical, minimal-change addition to standard RL pipelines that expands the frontier of learnable problems."
-  },
-  {
-    "objectID": "notes/index.html",
-    "href": "notes/index.html",
-    "title": "Notes",
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html",
+    "title": "GRPO Training Pipeline Setup Notes",
     "section": "",
-    "text": "Technical notes, experiment logs, debugging journals, and everything else.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Note\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nNote\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nFeb 26, 2026\n\n\nGRPO Training Pipeline Setup Notes\n\n\nrl, medenv, infra\n\n\nTechnical setup notes for the GRPO training pipeline on MedEnv tasks.\n\n\n\n\n\n\nNo matching items"
+    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
   },
   {
-    "objectID": "ideas/2026-03-05-mixture-of-distillations/index.html",
-    "href": "ideas/2026-03-05-mixture-of-distillations/index.html",
-    "title": "Mixture of Distillations",
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#environment",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#environment",
+    "title": "GRPO Training Pipeline Setup Notes",
     "section": "",
-    "text": "See slide deck here."
+    "text": "Base model: Llama-3-70B (4-bit quantized for dev, full precision for final runs)\nFramework: TRL + custom MedEnv integration\nHardware: 4x A100 80GB"
   },
   {
-    "objectID": "ideas/2026-03-05-mixture-of-distillations/index.html#methods-comparison",
-    "href": "ideas/2026-03-05-mixture-of-distillations/index.html#methods-comparison",
-    "title": "Mixture of Distillations",
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#training-config",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "Training Config",
+    "text": "Training Config\ntraining_config = {\n    \"group_size\": 8,          # completions per prompt\n    \"learning_rate\": 1e-6,\n    \"kl_coeff\": 0.05,\n    \"max_turns\": 15,          # max conversation turns per episode\n    \"batch_size\": 32,         # prompts per batch\n    \"gradient_accumulation\": 4,\n}"
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#issues-encountered",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "Issues Encountered",
+    "text": "Issues Encountered\nOOM on long trajectories — multi-turn conversations with 15 turns × 8 group samples blows up memory. Current workaround: truncate to 10 turns max during training, evaluate on full 15.\nFHIR validation bottleneck — the FHIR server becomes the bottleneck when validating 8 parallel trajectories. Need to batch validation calls or run a local validator.\nReward normalization — raw rewards are in [0, 1] but the group baseline can push advantages to extreme values. Added reward clipping at ±3 std."
+  },
+  {
+    "objectID": "notes/2026-02-26-grpo-training-setup/index.html#todo",
+    "href": "notes/2026-02-26-grpo-training-setup/index.html#todo",
+    "title": "GRPO Training Pipeline Setup Notes",
+    "section": "TODO",
+    "text": "TODO\n\nProfile the FHIR validation bottleneck\nTry group sizes {4, 8, 16} to find the sweet spot\nSet up W&B logging for reward distributions per task type"
+  },
+  {
+    "objectID": "research-interests/index.html",
+    "href": "research-interests/index.html",
+    "title": "Research Interests",
+    "section": "",
+    "text": "My research sits at the intersection of reinforcement learning, large language models, and robot learning. Below is a more detailed account of the specific directions I am pursuing and the questions that drive my work."
+  },
+  {
+    "objectID": "research-interests/index.html#rl-post-training-for-language-models",
+    "href": "research-interests/index.html#rl-post-training-for-language-models",
+    "title": "Research Interests",
+    "section": "RL Post-Training for Language Models",
+    "text": "RL Post-Training for Language Models\nA central theme of my research is understanding how reinforcement learning can be used after supervised pre-training to unlock new capabilities in large language models. Recent work has shown that RL-based post-training—such as RLHF [1] and RLVR [2]—can substantially improve reasoning, instruction following, and alignment. I am particularly interested in:\n\nSelf-distillation and self-play: can models improve by training on their own outputs, bootstrapping capability without new human data? This connects to ideas from expert iteration [3] and self-play in games [4].\nReward modeling and reward hacking: how do we design reward signals that remain faithful proxies for human intent as models become more capable? The problem of reward hacking [5] is a key bottleneck.\nContinual RL post-training: rather than a single RL fine-tuning phase, can we develop curricula that iteratively refine models over time, akin to continual learning [6]?"
+  },
+  {
+    "objectID": "research-interests/index.html#robot-learning-and-visuomotor-policies",
+    "href": "research-interests/index.html#robot-learning-and-visuomotor-policies",
+    "title": "Research Interests",
+    "section": "Robot Learning and Visuomotor Policies",
+    "text": "Robot Learning and Visuomotor Policies\nThe second pillar of my work concerns learning sensorimotor policies for robotic manipulation. Foundation models pre-trained on internet-scale data provide rich representations, but bridging the gap to physical action remains an open challenge. I am exploring:\n\nVision-language-action models (VLAs): architectures that map visual observations and language instructions directly to robot actions [7], and how to fine-tune them efficiently for new tasks.\nOn-policy RL for robotics: methods like PPO [8] and GRPO [2] applied in simulation and on real hardware, with a focus on sample efficiency and sim-to-real transfer.\nWorld models and planning: learning predictive models of environment dynamics [9] that enable model-based planning and reduce the need for costly real-world interaction."
+  },
+  {
+    "objectID": "research-interests/index.html#unifying-theme",
+    "href": "research-interests/index.html#unifying-theme",
+    "title": "Research Interests",
+    "section": "Unifying Theme",
+    "text": "Unifying Theme\nRL is the connective tissue across these interests. Whether the “backbone” is a language model or a visuomotor policy, the core algorithmic questions are shared: how to define good reward signals, how to explore efficiently, and how to leverage pre-trained representations for downstream adaptation. I believe progress on these fronts will be mutually reinforcing—advances in RL post-training for LLMs will inform robot learning, and vice versa."
+  },
+  {
+    "objectID": "research-interests/index.html#references",
+    "href": "research-interests/index.html#references",
+    "title": "Research Interests",
+    "section": "References",
+    "text": "References\n\n\n[1] L. Ouyang et al., “Training language models to follow instructions with human feedback,” Advances in Neural Information Processing Systems, vol. 35, pp. 27730–27744, 2022.\n\n\n[2] Z. Shao et al., “DeepSeekMath: Pushing the limits of mathematical reasoning in open language models,” arXiv preprint arXiv:2402.03300, 2024.\n\n\n[3] T. Anthony, Z. Tian, and D. Barber, “Thinking fast and slow with deep learning and tree search,” in Advances in neural information processing systems, 2017.\n\n\n[4] D. Silver et al., “Mastering the game of Go without human knowledge,” Nature, vol. 550, no. 7676, pp. 354–359, 2017.\n\n\n[5] J. Skalse, N. Howe, D. Krasheninnikov, and D. Krueger, “Defining and characterizing reward hacking,” Advances in Neural Information Processing Systems, vol. 35, pp. 20460–20471, 2022.\n\n\n[6] J. Kirkpatrick et al., “Overcoming catastrophic forgetting in neural networks,” Proceedings of the National Academy of Sciences, vol. 114, no. 13, pp. 3521–3526, 2017.\n\n\n[7] A. Brohan et al., “RT-2: Vision-language-action models transfer web knowledge to robotic control,” arXiv preprint arXiv:2307.15818, 2023.\n\n\n[8] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov, “Proximal policy optimization algorithms,” arXiv preprint arXiv:1707.06347, 2017.\n\n\n[9] D. Hafner, J. Pasukonis, J. Ba, and T. Lillicrap, “Mastering diverse domains through world models,” arXiv preprint arXiv:2301.04104, 2023."
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "",
+    "text": "World Action Models (WAMs) such as DreamZero jointly predict future video and robot actions through a shared backbone, achieving strong generalization on manipulation tasks. A key promise of WAMs is cross-embodiment transfer: leveraging abundant video demonstrations from other robots or humans to improve a target robot’s policy. However, current approaches use cross-embodiment data in a limited way—training only a video prediction objective on non-target data, discarding the action head entirely. The model learns what the world looks like when a task is performed but never explicitly learns how the target robot should act given what another embodiment demonstrated.\nThis is a surprisingly impoverished learning signal. The shared video-action backbone already encodes correspondences between visual dynamics and motor commands for the target embodiment. Cross-embodiment demonstrations provide strong constraints on the desired visual trajectory, grasp strategy, and timing. But no training signal connects these two sources of knowledge for action prediction.\nWe propose OPSD-CE (On-Policy Self-Distillation for Cross-Embodiment transfer), a method that uses cross-embodiment demonstrations as privileged information to generate dense, per-timestep action supervision for the target embodiment—then distills this knowledge into a student that requires no demonstrations at inference time."
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#problem-statement",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html#problem-statement",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "",
+    "text": "World Action Models (WAMs) such as DreamZero jointly predict future video and robot actions through a shared backbone, achieving strong generalization on manipulation tasks. A key promise of WAMs is cross-embodiment transfer: leveraging abundant video demonstrations from other robots or humans to improve a target robot’s policy. However, current approaches use cross-embodiment data in a limited way—training only a video prediction objective on non-target data, discarding the action head entirely. The model learns what the world looks like when a task is performed but never explicitly learns how the target robot should act given what another embodiment demonstrated.\nThis is a surprisingly impoverished learning signal. The shared video-action backbone already encodes correspondences between visual dynamics and motor commands for the target embodiment. Cross-embodiment demonstrations provide strong constraints on the desired visual trajectory, grasp strategy, and timing. But no training signal connects these two sources of knowledge for action prediction.\nWe propose OPSD-CE (On-Policy Self-Distillation for Cross-Embodiment transfer), a method that uses cross-embodiment demonstrations as privileged information to generate dense, per-timestep action supervision for the target embodiment—then distills this knowledge into a student that requires no demonstrations at inference time."
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#background",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html#background",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "2. Background",
+    "text": "2. Background\n\n2.1 DreamZero and World Action Models\nDreamZero is a 14B-parameter WAM built on a Diffusion Transformer (DiT) backbone that jointly predicts video tokens and action tokens via flow matching. Given a task instruction \\(x\\) and current observation \\(s_0\\), the model autoregressively generates future video frames \\(\\hat{v}_{1:T}\\) and extracts actions \\(a_{1:T}\\) through an implicit inverse dynamics process. The video prediction acts as a visual planner: the model first “imagines” the future, then derives motor commands consistent with that imagined future.\nFor cross-embodiment data (e.g., human demonstrations, other robot platforms), DreamZero trains only the video prediction loss:\n\\[\\mathcal{L}_{\\text{cross}} = \\mathcal{L}_{\\text{video}}(\\theta;\\, x,\\, v^{\\text{demo}})\\]\ndiscarding the action loss since action labels are unavailable or incompatible. This yields a 42% improvement with 10–20 minutes of cross-embodiment video, but leaves substantial information unused.\nKey observation: DreamZero’s authors identify that the primary failure mode is video generation errors propagating to incorrect actions—not action extraction failures. The action head is capable when given good visual plans, but the visual planner sometimes errs.\n\n\n2.2 On-Policy Self-Distillation (OPSD)\nOPSD introduces a framework for distilling privileged information into a student policy through on-policy rollouts. A teacher \\(\\pi_\\theta^T(y \\mid x, I)\\) conditions on privileged information \\(I\\) unavailable at test time, while a student \\(\\pi_\\phi^S(y \\mid x)\\) sees only the input \\(x\\). The training procedure:\n\nThe student generates rollouts from its own policy.\nAt each token position along the rollout, the teacher provides a target distribution conditioned on \\(I\\).\nThe student minimizes per-token divergence against the teacher’s distribution.\n\nOPSD achieves 4–8× token efficiency over GRPO by replacing sparse end-of-sequence rewards with dense per-token supervision. The on-policy rollouts avoid distribution mismatch between training and inference."
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#method-opsd-ce",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html#method-opsd-ce",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "3. Method: OPSD-CE",
+    "text": "3. Method: OPSD-CE\n\n3.1 Setup\nLet \\(\\pi_\\theta\\) denote the shared WAM with parameters \\(\\theta\\). We define two operating modes of the same model, controlled by a gating scalar \\(\\alpha \\in [0, 1]\\):\n\\[\\textbf{Teacher:} \\quad \\pi_\\theta^T(a_t \\mid s_t, x, v^{\\text{demo}};\\; \\alpha = 1)\\]\n\\[\\textbf{Student:} \\quad \\pi_\\theta^S(a_t \\mid s_t, x;\\; \\alpha = 0)\\]\nwhere \\(v^{\\text{demo}}\\) is a cross-embodiment demonstration video (privileged information), \\(s_t\\) is the state at timestep \\(t\\), and \\(x\\) is the task instruction.\nNo additional parameters. The cross-embodiment demonstration \\(v^{\\text{demo}}\\) is tokenized by the existing video tokenizer and injected into the DiT backbone via cross-attention, gated by \\(\\alpha\\). When \\(\\alpha = 0\\), the demonstration tokens are zeroed out and the model operates as the student. When \\(\\alpha = 1\\), the model has full access (teacher mode). Both modes share all parameters \\(\\theta\\).\n\n\n3.2 Why the Teacher Can Rationalize\nThe teacher is not an oracle—it must infer appropriate target-embodiment actions from a cross-embodiment demonstration. We argue this is tractable because:\n\nShared visual dynamics. The demonstration constrains the desired visual trajectory (object motion, contact timing, spatial path). These are largely embodiment-invariant.\nKnown target-embodiment mapping. From target-embodiment data \\(\\mathcal{D}_{\\text{tgt}}\\), the model has learned the mapping from visual trajectories to motor commands for the target robot.\nNarrowed search space. Instead of searching over all motor programs that achieve the goal, the teacher only needs to find commands that reproduce the demonstrated visual trajectory on the target embodiment.\n\nThe demonstration acts as a strong prior that collapses the ambiguity inherent in instruction-only conditioning.\n\n\n3.3 Training Algorithm\n\nAlgorithm: OPSD-CE\nInput: Shared WAM \\(\\pi_\\theta\\), target data \\(\\mathcal{D}_{\\text{tgt}}\\), cross-embodiment data \\(\\mathcal{D}_{\\text{cross}}\\), KL coefficient \\(\\beta\\), learning rate \\(\\eta\\)\nInitialize: \\(\\theta\\) from pre-trained WAM\nRepeat until convergence:\n\nStandard WAM training on target-embodiment data:\n\nSample \\((x, v_{\\text{tgt}}, a_{\\text{tgt}}) \\sim \\mathcal{D}_{\\text{tgt}}\\)\n\\(\\mathcal{L}_{\\text{video}} \\leftarrow \\text{FlowMatch}(\\pi_\\theta, x, v_{\\text{tgt}})\\)\n\\(\\mathcal{L}_{\\text{action}} \\leftarrow \\text{FlowMatch}(\\pi_\\theta, x, a_{\\text{tgt}})\\)\n\nCross-embodiment self-distillation:\n\nSample \\((x, v^{\\text{demo}}) \\sim \\mathcal{D}_{\\text{cross}}\\)\n\nPhase 1 — Student rollout (on-policy):\n\nRoll out \\(\\tau^S = (s_0, a_0^S, s_1, a_1^S, \\ldots, s_T)\\) using \\(\\pi_\\theta^S(\\cdot \\mid s_t, x;\\; \\alpha = 0)\\)\n\nPhase 2 — Dense teacher supervision:\n\nFor each timestep \\(t\\) in \\(\\tau^S\\):\n\nSample flow timestep \\(t_{\\text{flow}} \\sim \\mathcal{U}[0,1]\\), noise \\(\\epsilon \\sim \\mathcal{N}(0, I)\\)\nTeacher velocity: \\(\\mathbf{v}^T_t \\leftarrow f_\\theta(s_t, x, v^{\\text{demo}}, \\epsilon, t_{\\text{flow}};\\; \\alpha = 1)\\)\nStudent velocity: \\(\\mathbf{v}^S_t \\leftarrow f_\\theta(s_t, x, \\epsilon, t_{\\text{flow}};\\; \\alpha = 0)\\)\n\n\nPhase 3 — Distillation loss:\n\n\\(\\mathcal{L}_{\\text{distill}} \\leftarrow \\frac{1}{T} \\sum_{t=0}^{T-1} \\left\\| \\mathbf{v}^S_t - \\text{sg}(\\mathbf{v}^T_t) \\right\\|^2\\)\n\nJoint update:\n\n\\(\\mathcal{L} \\leftarrow \\mathcal{L}_{\\text{video}} + \\mathcal{L}_{\\text{action}} + \\beta \\cdot \\mathcal{L}_{\\text{distill}}\\)\n\\(\\theta \\leftarrow \\theta - \\eta \\nabla_\\theta \\mathcal{L}\\)\n\n\nReturn: \\(\\pi_\\theta^S\\) (student mode, \\(\\alpha = 0\\))\n\n\n\n3.4 Design Decisions\nFlow-matching MSE instead of KL. Since DreamZero uses flow matching for action prediction, the teacher and student outputs are velocity fields over continuous action space. Matching velocity fields via MSE:\n\\[\\left\\| \\mathbf{v}^S_t - \\mathbf{v}^T_t \\right\\|^2\\]\nis equivalent to minimizing the KL divergence between the implied flow distributions, and integrates natively with DreamZero’s existing training infrastructure.\nStop-gradient on teacher (\\(\\text{sg}\\)). We apply stop-gradient to the teacher’s velocity field to stabilize training, following OPSD. The teacher still improves through \\(\\mathcal{L}_{\\text{video}}\\) on cross-embodiment data and \\(\\mathcal{L}_{\\text{action}}\\) on target data. An ablation without stop-gradient (joint gradient flow through both modes) may benefit early training when the teacher’s rationalizations are poor.\nOn-policy rollouts. The student generates its own trajectories, and the teacher provides corrections at the states the student actually visits. This avoids the distribution mismatch problem of off-policy distillation: if the student drifts into an unusual state, the teacher corrects it there, not at states from an expert trajectory the student may never reach.\nSingle model, gated privileged information. Using a single model with \\(\\alpha\\)-gating rather than separate teacher/student networks means: (a) no extra memory or parameters, (b) improvements to the backbone benefit both modes simultaneously, and (c) the framework is compatible with \\(\\pi\\)-Distill-style joint training schedules that anneal \\(\\alpha\\) over time."
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#experimental-plan",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html#experimental-plan",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "4. Experimental Plan",
+    "text": "4. Experimental Plan\n\n4.1 Setup\n\nTarget embodiment: AgiBot (7-DoF manipulator)\nCross-embodiment sources: Human demonstrations (video only), YAM robot data (video only), other robot platforms\n\\(\\mathcal{D}_{\\text{tgt}}\\): AgiBot teleoperation data (scarce: 10–60 min per task)\n\\(\\mathcal{D}_{\\text{cross}}\\): Human/YAM video demonstrations (abundant: hours of video)\n\n\n\n4.2 Baselines\n\nDreamZero (video-only): Standard co-training with \\(\\mathcal{L}_{\\text{video}}\\) on cross-embodiment data. No action supervision from \\(\\mathcal{D}_{\\text{cross}}\\).\nOff-policy distillation: Teacher generates target-embodiment actions from demos; student imitates via SFT on teacher-generated data (not on-policy).\nTarget-only: Train only on \\(\\mathcal{D}_{\\text{tgt}}\\), no cross-embodiment data. Lower bound.\nAction co-training: Train action loss on all embodiments with a learned action-space mapping. Upper bound (requires action labels for all embodiments).\n\n\n\n4.3 Key Experiments\nExperiment 1: Cross-embodiment transfer efficacy. Compare OPSD-CE vs. baselines on held-out tasks that only appear in cross-embodiment data (never demonstrated on AgiBot). This is the cleanest test: can the model do on AgiBot what it only saw a human do?\nExperiment 2: Data efficiency scaling. Vary the ratio \\(|\\mathcal{D}_{\\text{tgt}}| / |\\mathcal{D}_{\\text{cross}}|\\). Hypothesis: OPSD-CE shows the largest gains when target-embodiment data is most scarce, precisely the regime that matters in practice.\nExperiment 3: Embodiment gap. Test across embodiment pairs with varying morphological similarity: AgiBot ↔︎ YAM (similar grippers), AgiBot ↔︎ Human (different end-effectors), AgiBot ↔︎ bimanual robot (different kinematics). Hypothesis: performance degrades gracefully as the embodiment gap widens.\nExperiment 4: Ablations.\n\nOn-policy vs. off-policy distillation\nStop-gradient vs. joint gradient flow\nFull demo video vs. keyframes vs. trajectory sketch as privileged information\nSensitivity to \\(\\beta\\) (distillation coefficient)\n\n\n\n4.4 Evaluation Metrics\n\nTask success rate on held-out tasks (primary)\nSuccess rate on cross-embodiment-only tasks (zero-shot transfer)\nSample efficiency: success rate as a function of target-embodiment data quantity\nVideo-action alignment: how well predicted actions match generated video plans"
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#expected-contributions",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html#expected-contributions",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "5. Expected Contributions",
+    "text": "5. Expected Contributions\n\nA principled framework for using cross-embodiment demonstrations as privileged information in WAMs, moving beyond video-only training objectives.\nDense action supervision from unlabeled video: cross-embodiment demonstrations that lack target-embodiment action labels are transformed into per-timestep action training signals via self-distillation.\nOn-policy training for robustness: corrections occur at states the student actually visits, avoiding the compounding errors of off-policy approaches.\nZero additional parameters: the method uses a single model with gated privileged information, requiring no architectural changes to the WAM.\n\nThe broader significance is that OPSD-CE turns any cross-embodiment video demonstration into a source of dense action supervision for a target robot—a capability that scales naturally with the growing availability of internet-scale manipulation video."
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#connections-to-prior-work",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html#connections-to-prior-work",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "6. Connections to Prior Work",
+    "text": "6. Connections to Prior Work\nPrivileged information distillation. Learning Using Privileged Information (LUPI) trains a teacher with access to information unavailable at test time, then distills to a student. In robotics, this has been applied with access to simulator state, but not with cross-embodiment demonstrations as the privileged modality.\nCross-embodiment transfer. Existing approaches include domain randomization, embodiment-invariant representations, and video-only co-training (as in DreamZero). OPSD-CE is distinct in that it generates action-level supervision from cross-embodiment video, rather than relying solely on shared visual representations.\nSelf-distillation for reasoning. OPSD and \\(\\pi\\)-Distill show that dense self-distillation from privileged information dramatically improves sample efficiency in language model reasoning. We adapt this insight to the visuomotor domain, where the “reasoning” is motor planning and the “privileged information” is a demonstration from another embodiment."
+  },
+  {
+    "objectID": "ideas/2026-03-04-robot-self-distill/index.html#timeline",
+    "href": "ideas/2026-03-04-robot-self-distill/index.html#timeline",
+    "title": "On-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models",
+    "section": "7. Timeline",
+    "text": "7. Timeline\n\n\n\n\n\n\n\nPhase\nDuration\n\n\n\n\nImplementation of \\(\\alpha\\)-gated privileged injection in DiT backbone\n2 weeks\n\n\nOn-policy rollout infrastructure + distillation loss\n2 weeks\n\n\nExperiment 1–2: Transfer efficacy and data efficiency\n3 weeks\n\n\nExperiment 3–4: Embodiment gap and ablations\n3 weeks\n\n\nWriting and submission\n2 weeks"
+  },
+  {
+    "objectID": "ideas/2026-03-05-continual-learning-rlvr/index.html",
+    "href": "ideas/2026-03-05-continual-learning-rlvr/index.html",
+    "title": "Continual Learning for RLVR",
+    "section": "",
+    "text": "See slide decks of some new ideas in this space:\nImportant disctions:"
+  },
+  {
+    "objectID": "ideas/2026-03-05-continual-learning-rlvr/index.html#methods-comparison",
+    "href": "ideas/2026-03-05-continual-learning-rlvr/index.html#methods-comparison",
+    "title": "Continual Learning for RLVR",
     "section": "Methods comparison",
     "text": "Methods comparison\n\n\n\n\n\n\n\n\n\nMethod\nTraining\nMerging\nForgetting fix\n\n\n\n\nSequential RLVR (baseline)\nSequential\nN/A\nNone (the problem)\n\n\nGLM-5 cross-stage distillation\nSequential\nSequential (recovery stage)\nRetroactive repair\n\n\nMulti-objective RLVR\nSimultaneous\nN/A (one model)\nAvoided by design\n\n\nFeedback prediction rehearsal\nSequential\nN/A (one model)\nConcurrent maintenance loss\n\n\nTeacher-based regularization\nSequential\nN/A (one model)\nConcurrent regularization\n\n\nPopulation RLVR\nParallel\nOne-shot merge\nAvoided by design\n\n\nMixture of Distillations\nParallel\nRouted distillation\nAvoided by design\n\n\n\nThe parallel methods (population, MoD) never forget because specialists never train on each other’s tasks. The simultaneous method (multi-objective) never forgets because all tasks are optimized together. The sequential methods (rehearsal, teacher reg) accept sequential training but add a maintenance signal to slow forgetting. GLM-5 accepts forgetting and repairs it after the fact."
-  },
-  {
-    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html",
-    "href": "ideas/2026-03-05-reward-vs-discover/index.html",
-    "title": "Beyond Reweighting: Can RLVR Discover?",
-    "section": "",
-    "text": "See discovery_slides.pdf."
-  },
-  {
-    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#motivation",
-    "href": "ideas/2026-03-05-reward-vs-discover/index.html#motivation",
-    "title": "Beyond Reweighting: Can RLVR Discover?",
-    "section": "Motivation",
-    "text": "Motivation\nWhy is this worth pursuing? What gap does it fill?\n\nRLVR can only help climb the hill more efficiently, not help you climb a new hill."
-  },
-  {
-    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#core-idea",
-    "href": "ideas/2026-03-05-reward-vs-discover/index.html#core-idea",
-    "title": "Beyond Reweighting: Can RLVR Discover?",
-    "section": "Core Idea",
-    "text": "Core Idea\nDescribe the approach. Include equations, pseudocode, or diagrams as needed."
-  },
-  {
-    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#open-questions",
-    "href": "ideas/2026-03-05-reward-vs-discover/index.html#open-questions",
-    "title": "Beyond Reweighting: Can RLVR Discover?",
-    "section": "Open Questions",
-    "text": "Open Questions"
-  },
-  {
-    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#potential-experiments",
-    "href": "ideas/2026-03-05-reward-vs-discover/index.html#potential-experiments",
-    "title": "Beyond Reweighting: Can RLVR Discover?",
-    "section": "Potential Experiments",
-    "text": "Potential Experiments"
-  },
-  {
-    "objectID": "ideas/2026-03-05-reward-vs-discover/index.html#related-work",
-    "href": "ideas/2026-03-05-reward-vs-discover/index.html#related-work",
-    "title": "Beyond Reweighting: Can RLVR Discover?",
-    "section": "Related Work",
-    "text": "Related Work"
   },
   {
     "objectID": "ideas/2026-03-01-vlaf/unified-proposal.html",
@@ -1218,11 +1386,53 @@
     "text": "Variant #3: VLAF-Contrastive\nSee vlaf-contrastive.md"
   },
   {
-    "objectID": "ideas/index.html",
-    "href": "ideas/index.html",
-    "title": "Ideas",
+    "objectID": "ideas/2026-03-06-contrastive-rollouts/index.html",
+    "href": "ideas/2026-03-06-contrastive-rollouts/index.html",
+    "title": "Contrastive Learning on GRPO Rollouts",
     "section": "",
-    "text": "Research directions, hypotheses, experiment proposals, and half-baked thoughts.\nUse _template.qmd as a starting point for new entries.\n\n\n\n\n\n\n\n\n   \n    \n    \n      Order By\n      Default\n      \n        Date - Oldest\n      \n      \n        Date - Newest\n      \n      \n        Idea\n      \n    \n  \n    \n      \n      \n    \n\n\n\n\n\n\nDate\n\n\n\nIdea\n\n\n\nTags\n\n\n\nSummary\n\n\n\n\n\n\n\n\nMar 5, 2026\n\n\nContinual Learning for RLVR\n\n\nrl\n\n\n\n\n\n\n\n\n\nMar 5, 2026\n\n\nMixture of Distillations\n\n\nrl\n\n\n\n\n\n\n\n\n\nMar 5, 2026\n\n\nBeyond Reweighting: Can RLVR Discover?\n\n\nrl\n\n\nDoes RLVR only reweight and sharpen pre-existing solutios, or can it discover new solutions?\n\n\n\n\n\n\nMar 5, 2026\n\n\nSelf-Distilling Reward Models\n\n\nrl, favorite\n\n\nPolicy as its own judge. Self-distill teacher as a reward model into the student\n\n\n\n\n\n\nMar 4, 2026\n\n\nOn-Policy Self-Distillation for Cross-Embodiment Transfer in World Action Models\n\n\nrobot-learning\n\n\nSelf-distill different embodiments through demo in a world model\n\n\n\n\n\n\nMar 2, 2026\n\n\nSearch Self-Distillation\n\n\nrl, llm\n\n\nUse MCTS on-policy\n\n\n\n\n\n\nMar 2, 2026\n\n\nThe Policy as Its Own Judge: Self-Rewarding Language Models through Self-Distillation Grounded by Asymmetric Environment Feedback\n\n\nrl\n\n\nUse self-distillation to make self-teacher own LLM-as-a-Judge. Conditioned on environment feedback.\n\n\n\n\n\n\nMar 1, 2026\n\n\nMeta-Reasoning via Search: Integrating Monte Carlo Tree Search with Group Relative Policy Optimization for Efficient LLM Post-Training\n\n\nrl\n\n\nAdding in MCTS into GRPO and then distilling this into the base model\n\n\n\n\n\n\nMar 1, 2026\n\n\nVLAF: Video-Language-Action Fusion for Robot Learning Backbone\n\n\nvla, robot learning\n\n\nCondition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch.\n\n\n\n\n\n\nFeb 26, 2026\n\n\nAdversarial Co-Training for Online Reward Hacking Mitigation (ARHD)\n\n\nrl\n\n\nCo-evolve a critic alongside the policy to detect and mitigate reward hacking online\n\n\n\n\n\n\nFeb 26, 2026\n\n\nSelf-Distillation for Reward Hacking Mitigation via Contextualized Self-Judgment\n\n\nrl\n\n\nCondition policy on additional context, use to detect reward hacking, self-distill into student policy, all online, preventing distribution mismatch.\n\n\n\n\n\n\nNo matching items"
+    "text": "Why is this worth pursuing? What gap does it fill?"
+  },
+  {
+    "objectID": "ideas/2026-03-06-contrastive-rollouts/index.html#motivation",
+    "href": "ideas/2026-03-06-contrastive-rollouts/index.html#motivation",
+    "title": "Contrastive Learning on GRPO Rollouts",
+    "section": "",
+    "text": "Why is this worth pursuing? What gap does it fill?"
+  },
+  {
+    "objectID": "ideas/2026-03-06-contrastive-rollouts/index.html#core-idea",
+    "href": "ideas/2026-03-06-contrastive-rollouts/index.html#core-idea",
+    "title": "Contrastive Learning on GRPO Rollouts",
+    "section": "Core Idea",
+    "text": "Core Idea\nDescribe the approach. Include equations, pseudocode, or diagrams as needed."
+  },
+  {
+    "objectID": "ideas/2026-03-06-contrastive-rollouts/index.html#open-questions",
+    "href": "ideas/2026-03-06-contrastive-rollouts/index.html#open-questions",
+    "title": "Contrastive Learning on GRPO Rollouts",
+    "section": "Open Questions",
+    "text": "Open Questions"
+  },
+  {
+    "objectID": "ideas/2026-03-06-contrastive-rollouts/index.html#potential-experiments",
+    "href": "ideas/2026-03-06-contrastive-rollouts/index.html#potential-experiments",
+    "title": "Contrastive Learning on GRPO Rollouts",
+    "section": "Potential Experiments",
+    "text": "Potential Experiments"
+  },
+  {
+    "objectID": "ideas/2026-03-06-contrastive-rollouts/index.html#related-work",
+    "href": "ideas/2026-03-06-contrastive-rollouts/index.html#related-work",
+    "title": "Contrastive Learning on GRPO Rollouts",
+    "section": "Related Work",
+    "text": "Related Work"
+  },
+  {
+    "objectID": "ideas/2026-03-01-search-self-distillation/index.html",
+    "href": "ideas/2026-03-01-search-self-distillation/index.html",
+    "title": "Search Self-Distillation",
+    "section": "",
+    "text": "“generalized reasoning engine”. By replacing standard gradient steps with search in the inner loop, we avoid the trap of just doing Supervised Fine-Tuning. The teacher acts as the search heuristic, and the student compiles those discoveries back into its base weights, staying strictly on-policy to prevent distribution shift.\nThis formulation heavily utilizes the latent reasoning tokens to bridge the gap between exploration and distillation, clarifying the model’s intent at each step.\n\n1. The Search-Distillation Objective Function\nLet the policy be \\(\\pi_{\\theta}\\). For a given prompt \\(s\\), a complete trajectory \\(\\tau\\) consists of a sequence of intermediate reasoning tokens \\(r = (r_1, ..., r_k)\\) and a final answer/action \\(a\\). So, \\(\\tau = (r, a)\\).\nThe Inner Loop (Teacher’s Search): Instead of Test-Time Training via gradients , the Teacher runs a search algorithm \\(\\mathcal{S}\\) (e.g., MCTS or a STaR-like rejection sampling) over the latent reasoning space. The search is guided by the policy’s own prior probabilities and an environment verifier \\(V(s, \\tau) \\in \\{0, 1\\}\\).\nThe output of the search is a golden trajectory \\(\\tau^* = (r^*, a^*)\\) that successfully solves the prompt:\n\\[\\tau^* = \\text{argmax}_{\\tau \\in \\mathcal{S}(\\pi_{\\theta}, s)} V(s, \\tau)\\]\nThe Outer Loop (Student’s Distillation): The Student (which shares the exact same weights \\(\\theta\\)) is then updated to maximize the likelihood of this verifiable reasoning path. To maintain stability in RLVR, we optimize this using a policy gradient method like GRPO, treating the discovered \\(\\tau^*\\) as the behavioral target.\nThe distillation objective forces the model’s latent representations to align with the successful reasoning trace:\n\\[\\mathcal{L}_{distill}(\\theta) = -\\mathbb{E}_{s \\sim \\mathcal{D}, \\tau^* \\sim \\mathcal{S}} \\left[ \\sum_{t=1}^{|\\tau^*|} \\log \\pi_{\\theta}(\\tau^*_t | s, \\tau^*_{&lt;t}) \\right]\\]\nIf you want to maintain the relative advantage framing (like in GRPO), you can structure it as an advantage-weighted loss where trajectories found via search that yield high verifier scores receive a positive advantage \\(+A\\), and failed searches receive \\(-A\\).\n\n\n\n2. Algorithm: Generalized Reasoning via On-Policy Search\nHere is how the execution loop looks. Notice how it seamlessly supports continual learning because the student and teacher are always on the same distribution.\nAlgorithm: Inference-Search Distillation (The “New MAML”) Require: Initial policy weights \\(\\theta_{0}\\), Search algorithm \\(\\mathcal{S}\\) (e.g., MCTS), Verifier \\(V\\), Learning rate \\(\\eta\\).\n\nInitialize policy \\(\\pi_{\\theta} \\leftarrow \\pi_{\\theta_{0}}\\)\nFor each training iteration \\(k = 1, 2, \\dots\\) do:\n\\(\\quad\\) Sample a batch of prompts \\(\\{s_i\\}_{i=1}^B\\) from the task distribution.\n\\(\\quad\\) Teacher Phase (Self-Induced Reasoning Search):\n\\(\\quad \\quad\\) For each prompt \\(s_i\\) do:\n\\(\\quad \\quad \\quad\\) Execute search \\(\\mathcal{S}\\) using \\(\\pi_{\\theta}\\) as the rollout prior to explore reasoning tokens \\(r\\) and actions \\(a\\).\n\\(\\quad \\quad \\quad\\) Evaluate leaf nodes using the environment verifier \\(V(s_i, \\tau)\\).\n\\(\\quad \\quad \\quad\\) Extract the golden reasoning trajectory: \\(\\tau_i^* = (r_i^*, a_i^*)\\).\n\\(\\quad \\quad\\) End For\n\\(\\quad\\) Filter out prompts where the search failed to find a verifiable solution (\\(V=0\\)).\n\\(\\quad\\) Student Phase (On-Policy Distillation):\n\\(\\quad \\quad\\) Compute the distillation loss over the successful reasoning tokens and actions:\n\\(\\quad \\quad \\mathcal{L}(\\theta) = -\\frac{1}{N_{success}} \\sum_{i} \\log \\pi_{\\theta}(\\tau_i^* | s_i)\\)\n\\(\\quad \\quad\\) Update the shared weights: \\(\\theta \\leftarrow \\theta - \\eta \\nabla_{\\theta} \\mathcal{L}(\\theta)\\)\nEnd For\n\n\n\n\n3. Implementation Strategy\nBecause this architecture isolates the heavy compute to the forward-pass search tree rather than requiring ephemeral backwards passes, it’s highly scalable.\nIf you were to prototype this, you could easily build it into a minimal deep learning framework. You’d just need to abstract the SearchAlgorithm as a modular class that takes a prompt and the current model state, returning a list of token IDs (the golden trajectory). Then, your outer training loop remains a dead-simple PyTorch optimization step over those returned tokens, perfectly suited for a lightweight RL LLM post-training package like minpost."
   },
   {
     "objectID": "ideas/2026-03-05-self-distill-reward-model/index.html",
@@ -1236,7 +1446,7 @@
     "href": "ideas/2026-03-05-self-distill-reward-model/index.html#motivation",
     "title": "Self-Distilling Reward Models",
     "section": "Motivation",
-    "text": "Motivation\n\n\n\n\n\n\nNote\n\n\n\n\nAnalogies:\n\n&gt; - Student takes a test (base student policy)\n&gt; - Student grades the test using an answer key (verifier)\n&gt; - + student grades the test using an answer key + explanations for why they (the student) got something correct/incorrect (verifier + environment feedback)\n&gt; - + student grades the test using an answer key + explanations for why they (the student) got something correct/incorrect (verifier + environment feedback) + annotations of their own thinking process \n&gt; - In each analogy, student redo's the test after, again. \n3 main areas on how to frame it:\n\nAs an enhanced self reward shaping method: turn RLVR sparse signals into dense signals automatically\nAs a general form self-judge. The context can be anything. We introduce the general framework of distilling a reward model out of the base model. And we specifically use environment feedback as the asymmetric piece of information to enable this. But really, you can use any piece of asymmetric information of your choosing. Then just plug into our framework. Seemingly the most powerful formulation. (i.e., the general approach, not just the environment. You bring your own asymmetric information).\n\nAs a paper focused on interacting and learning from the environment/feedback. As in, the environment feedback part is the core contribution. The self-distillation and self-reward model parts is just extra math dressing to work it work.\n(Extra) go back to reward hack mitigation and adapt this idea to it: the self-judge, grounded by environment feedback, can serve as a reward hack detection proxy.\n(Extra) Reframe as standard distillation: for the self-distilling reward models through enviornment grounding idea, one thought: instead of treating the teacher as a reward model that assigns rewards what about the standard distillation approach: teacher is given assymetric information via env feedback, it produces its own solution using this feedback, student tries to match it.\n\nBig problem: is this really any better than just using a powerful external judge like opus 4.6?\n\n\nTitle ideas:\n\nSelf-Distilling Reward Models through Asymmetric Information (i.e., the general approach, not just the environment. You bring your own asymmetric information).\n\nThe core claim: any time you have asymmetric information available post-hoc (information the teacher can see that the student couldn’t at generation time), you can distill a reward model out of the base model itself. Execution feedback is one instantiation example.\nSee sdrh-general-asymmetric slides"
+    "text": "Motivation\n\n\n\n\n\n\nNote\n\n\n\n\nAnalogies:\n\n&gt; - Student takes a test (base student policy)\n&gt; - Student grades the test using an answer key (verifier)\n&gt; - + student grades the test using an answer key + explanations for why they (the student) got something correct/incorrect (verifier + environment feedback)\n&gt; - + student grades the test using an answer key + explanations for why they (the student) got something correct/incorrect (verifier + environment feedback) + annotations of their own thinking process \n&gt; - In each analogy, student redo's the test after, again. \n3 main areas on how to frame it:\n\nAs an enhanced self reward shaping method: turn RLVR sparse signals into dense signals automatically\nAs a general form self-judge. The context can be anything. We introduce the general framework of distilling a reward model out of the base model. And we specifically use environment feedback as the asymmetric piece of information to enable this. But really, you can use any piece of asymmetric information of your choosing. Then just plug into our framework. Seemingly the most powerful formulation. (i.e., the general approach, not just the environment. You bring your own asymmetric information).\n\nAs a paper focused on interacting and learning from the environment/feedback. As in, the environment feedback part is the core contribution. The self-distillation and self-reward model parts is just extra math dressing to work it work.\n(Extra) go back to reward hack mitigation and adapt this idea to it: the self-judge, grounded by environment feedback, can serve as a reward hack detection proxy.\n(Extra) Reframe as standard distillation: for the self-distilling reward models through enviornment grounding idea, one thought: instead of treating the teacher as a reward model that assigns rewards what about the standard distillation approach: teacher is given assymetric information via env feedback, it produces its own solution using this feedback, student tries to match it.\n\nBig problem: is this really any better than just using a powerful external judge like opus 4.6? or icl? or regular self-distillation?\nCompare to: - standard LLM-as-a-judge (does off policy really matter?) - in-context learning: just append environment feedback to the context and redo forward pass - regular self-distillation: train student to match teacher logits - My method: self-teacher, grounded in environment feedback, gives the reward\n\n\nTitle ideas:\n\nSelf-Distilling Reward Models through Asymmetric Information (i.e., the general approach, not just the environment. You bring your own asymmetric information).\n\nThe core claim: any time you have asymmetric information available post-hoc (information the teacher can see that the student couldn’t at generation time), you can distill a reward model out of the base model itself. Execution feedback is one instantiation example.\nSee sdrh-general-asymmetric slides"
   },
   {
     "objectID": "ideas/2026-03-05-self-distill-reward-model/index.html#core-idea",
